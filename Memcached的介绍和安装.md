@@ -34,9 +34,9 @@
 
 3. 添加启动脚本
 ```bash
-# http://blog.phpha.com  
-# 以下内容摘自互联网  
-vi /etc/rc.d/init.d/memcached  
+vi /etc/rc.d/init.d/memcached
+```
+```bash  
 #!/bin/sh  
 #  
 # memcached:    MemCached Daemon  
@@ -82,7 +82,20 @@ case "$1" in
 esac  
 exit 0
 ```
-
+4. memcached加入系统启项
+```bash
+[root@localhost /]# chmod a+x memcached
+[root@localhost /]# chkconfig --add memcached 
+[root@localhost /]# chkconfig --level 35 memcached on
+```
+5. 启动memcached 
+```bash
+[root@localhost init.d]# service memcached restart 
+Restarting memcached (via systemctl):  [  确定  ]
+[root@localhost init.d]# ps -ef |grep memcached 
+memcach+  12027      1  0 21:50 ?        00:00:00 /usr/bin/memcached -u memcached -p 11211 -m 64 -c 1024
+root      12060  11988  0 21:50 pts/0    00:00:00 grep --color=auto memcached
+```
 ## 客户端的安装
 
 &emsp;&emsp;**libmemcached-1.0.18.tar.gz**
