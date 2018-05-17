@@ -1,3 +1,38 @@
+# MemCached使用场景
+通常，我们会在访问量高的Web网站和应用中使用MemCache，用来缓解数据库的压力，并且提升网站和应用的响应速度。
+
+**在应用程序中，我们通常在以下节点来使用MemCached：**
+
+1. 访问频繁的数据库数据（身份token、首页动态）
+2. 访问频繁的查询条件和结果
+3. 作为Session的存储方式（提升Session存取性能）
+4. 页面缓存
+5. 更新频繁的非重要数据（访客量、点击次数）
+6. 大量的hot数据
+
+**常用工作流程（如下图）：**
+
+![](memcached/memcached_flow.png)
+1. 客户端请求数据
+2. 检查MemCached中是否有对应数据
+3. 有的话直接返回，结束
+4. 没有的话，去数据库里请求数据
+5. 将数据写入MemCached，供下次请求时使用
+6. 返回数据，结束
+
+（注意：缓存到MemCached中的数据库数据，在更新数据库时要注意同时更新MemCached）
+
+# 不适用memcached的业务场景： 
+1. 缓存对象的大小大于1MB   
+   Memcached本身就不是为了处理庞大的多媒体（large media）和巨大的二进制块（streaming huge blobs）而设计的。   
+2. key的长度大于250字符   
+3. 虚拟主机不让运行memcached服务   
+   如果应用本身托管在低端的虚拟私有服务器上，像vmware, xen这类虚拟化技术并不适合运行memcached。Memcached需要接管和控制大块的内存，如果memcached管理的内存被OS或 hypervisor交换出去，memcached的性能将大打折扣。 
+4. 应用运行在不安全的环境中   
+   Memcached为提供任何安全策略，仅仅通过telnet就可以访问到memcached。如果应用运行在共享的系统上，需要着重考虑安全问题。 
+5. 业务本身需要的是持久化数据或者说需要的应该是database
+
+
 # MemCached工作原理
 MemCached采用了C/S架构，在Server端启动后，以守护程序的方式，监听客户端的请求。启动时可以指定监听的IP（服务器的内网ip/外网ip）、端口号（所以做分布式测试时，一台服务器上可以启动多个不同端口号的MemCached进程）、使用的内存大小等关键参数。一旦启动，服务就会一直处于可用状态。
 为了提高性能，MemCached缓存的数据全部存储在MemCached管理的内存中，所以重启服务器之后缓存数据会清空，不支持持久化。
@@ -13,6 +48,7 @@ MemCached采用了C/S架构，在Server端启动后，以守护程序的方式�
 2. 存放数据时，首先slab要申请内存，申请内存是以page为单位的。所以在放入第一个数据的时候，无论大小为多少，都会有1M大小的page被分配给该slab。申请到page后，slab会将这个page的内存按chunk的大小进行切分，这样就变成了一个chunk数组，最后从这个chunk数组中选择一个用于存储数据。
 
 **示例：**
+
 ![](memcached/memcached_slab.png)
 
 MemCache中的value存放位置是由value的大小决定，value会被存放到与chunk大小最接近的一个slab中，比如slab[1]的chunk大小为88字节、slab[2]的chunk大小为112字节、slab[3]的chunk大小为144字节（默认相邻slab内的chunk基本以1.25为比例进行增长，MemCache启动时可以用-f指定这个比例），那么一个100字节的value，将被放到2号slab中。
@@ -22,7 +58,7 @@ MemCache中的value存放位置是由value的大小决定，value会被存放到
 Used)算法清理失效的缓存数据（放入数据时可设置失效时间），或者清理最近最少使用的缓存数据，然后放入新的数据。
 2. 在LRU中，MemCached使用的是一种Lazy
 Expiration策略，自己不会监控存入的key/vlue对是否过期，而是在获取key值时查看记录的时间戳，检查key/value对空间是否过期，这样可减轻服务器的负载。
-3. 需要注意的是，如果如果MemCache启动没有追加-M，则表示禁止LRU，这种情况下内存不够会报Out Of Memory错误。
+3. 需要注意的是，如果MemCache启动没有追加-M，则表示禁止LRU，这种情况下内存不够会报Out Of Memory错误。
 
 **针对MemCache的内存分配及回收算法，总结三点：**
 
