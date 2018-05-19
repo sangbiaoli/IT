@@ -41,6 +41,7 @@ openssl openssl-devel
 #git clone https://git-wip-us.apache.org/repos/asf/thrift.git
 git clone https://github.com/apache/thrift.git
 cd thrift
+git checkout -b 0.11.0 origin/0.11.0  #原来的分支过高，切换到0.11.0
 ./bootstrap.sh
 #./configure --with-boost=/usr/include/ #因为boost安装在/usr/include里？ 
 ./configure --with-lua=no
@@ -94,3 +95,6 @@ mv composer.phar /usr/local/bin/composer    #移动composer.phar文件到/usr/lo
     - /etc/php.d/zip.ini
   You can also run `php --ini` inside terminal to see which files are used by PHP in CLI mode.
 ```
+
+中间遇到坑，说php版本太低(centos7默认5.4),故需要升级到5.5-7.0之间，升级过程中，需要换yum，结果死活换不了，朋友帮忙换了aliyum才能更新，后续就好了。
+
