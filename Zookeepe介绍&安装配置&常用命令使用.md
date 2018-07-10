@@ -30,6 +30,16 @@
 dataDir=/usr/local/zk/data      #修改data目录
 dataLogDir=/usr/local/zk/logs   #修改log目录
 ```
+
+```bash
+vi /etc/profile
+#追加下面内容
+export ZOOKEEPER_HOME=/usr/local/src/zookeeper-3.4.10
+export PATH=$PATH:$ZOOKEEPER_HOME/bin:$ZOOKEEPER_HOME/conf
+
+#保存后，令配置生效
+source /etc/profile
+````
 ### 三、常用命令使用
 1. zookeeper server启动及停用
 ```bash
