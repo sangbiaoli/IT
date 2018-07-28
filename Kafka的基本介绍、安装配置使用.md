@@ -25,67 +25,12 @@ Kafka是分布式发布-订阅消息系统，最初由LinkedIn公司开发，之
 
 **1、安装JDK**
 
-假如jdk-8u152-linux-x64.tar.gz在/home/bill下
-
-1. 新建路径/usr/java,并拷贝压缩包， 并在其下解压 
-    ```bash
-    mkdir -p /usr/java
-    cp -f /home/bill/jdk-8u152-linux-x64.tar.gz /usr/java
-    cd /usr/java
-    tar -zxvf jdk-8u152-linux-x64.tar.gz
-    rm -f jdk-8u152-linux-x64.tar.gz
-    ```
-2. 添加JDK到系统环境变量 
-    ```bash
-    [root@test java]# vi /etc/profile 
-    ```
-    新增以下内容： 
-    ```bash
-    export JAVA_HOME=/usr/java/jdk1.8.0_152
-    export PATH=$JAVA_HOME/bin:$PATH 
-    export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar 
-    ```
-3. 使配置生效 
-    ```bash
-    source /etc/profile #使配置文件立即生效 
-    ```
-4.  查看结果：
-    ```bash
-    [root@test java]# java -version 
-    java version "1.8.0_152"
-    Java(TM) SE Runtime Environment (build 1.8.0_152-b16)
-    Java HotSpot(TM) 64-Bit Server VM (build 25.152-b16, mixed mode)
-    ```
-
+参考文档：linux常见软件安装.md，安装jdk部分
 
 **2、安装zookeeper**
-1. 下载，解压，重命名
-    ```bash
-    cd /usr/local/
-    wget http://archive.apache.org/dist/zookeeper/zookeeper-3.3.6/zookeeper-3.3.6.tar.gz
-    tar -zxvf zookeeper-3.3.6.tar.gz
-    mv zookeeper-3.3.6 zookeeper
-    ```
-2. 添加zookeeper到系统环境变量
-    ```bash
-    [root@test java]# vi /etc/profile 
-    ```
-    新增以下内容： 
-    ```bash
-    export zookeeper_home=/usr/local/zookeeper
-    ```
-3. 使配置生效 
-    ```bash
-    source /etc/profile 
-    ```
-4. 查看结果： 
-    ```bash
-    [root@test bin]# sh $zookeeper_home/bin/zkServer.sh start 
-    JMX enabled by default
-    Using config: /usr/local/zookeeper/bin/../conf/zoo.cfg
-    grep: /usr/local/zookeeper/bin/../conf/zoo.cfg: 没有那个文件或目录
-    Starting zookeeper ... STARTED
-    ```
+
+参考文档：Zookeepe介绍&安装配置&常用命令使用.md，安装zookeeper部分
+
 
 **3、安装kafka**
 1. 下载，解压，重命名
@@ -104,7 +49,7 @@ Kafka是分布式发布-订阅消息系统，最初由LinkedIn公司开发，之
     port=9092 #端口号 
     host.name=192.168.141.129 #服务器IP地址，修改为自己的服务器IP 
     log.dirs=/usr/local/kafka/log/kafka #日志存放路径，上面创建的目录 
-    zookeeper.connect=localhost:2181 #zookeeper地址和端口，单机配置部署，localhost:2181 
+    zookeeper.connect=127.0.0.1:2181 #zookeeper地址和端口，单机配置部署，127.0.0.1:2181 
     ```
 3. 配置kafka下的zookeeper 
     ```bash
@@ -178,21 +123,21 @@ Kafka是分布式发布-订阅消息系统，最初由LinkedIn公司开发，之
 3. 测试创建topic 
     ```bash
     cd /usr/local/kafka/bin 
-    ./kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic test 
+    ./kafka-topics.sh --create --zookeeper 127.0.0.1:2181 --replication-factor 1 --partitions 1 --topic test 
     ```
 4. 通过list命令查看创建的topic 
     ```bash
     cd /usr/local/kafka/bin 
-    ./kafka-topics.sh --list --zookeeper localhost:2181
+    ./kafka-topics.sh --list --zookeeper 127.0.0.1:2181
     ```
 5. 生产消息测试 
     ```bash
-    [root@test bin]# ./kafka-console-producer.sh --broker-list localhost:9092 --topic test 
+    [root@test bin]# ./kafka-console-producer.sh --broker-list 127.0.0.1:9092 --topic test 
     laoyang I love you! 
     ```
 6. 消费消息测试 
     ```bash
-    [root@test bin]# ./kafka-console-consumer.sh --zookeeper localhost:2181 --topic test --from-beginning 
+    [root@test bin]# ./kafka-console-consumer.sh --zookeeper 127.0.0.1:2181 --topic test --from-beginning 
     I'm laoyang #之前测试输入的内容 
     laoyang I love you! 
     ```
