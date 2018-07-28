@@ -20,7 +20,7 @@
     * 同一个ZooKeeper集群内，不同ZooKeeper Server进程的标识须要不一样。即myid文件内的值须要不一样 
     * 采用上述第2种形式构建ZooKeeper集群，须要注意“文件夹，port号”等资源的不可共享性，假设共享会导致ZooKeeper Server进程不能正常执行。比方“data文件夹。几个监听port号”都不能被共享
 
-### 练习环境举例
+### **练习环境举例**
 采用上述第2种形式构建一个使用quorum模式的ZooKeeper集群。
 假设zookeeper目录为/usr/local/src/zookeeper-3.4.10，下面说明用$ZOOKEEPER_HOME代表
 1. 集群规划如表
@@ -111,3 +111,55 @@ cd /usr/local/src/zookeeper-3.4.10
 ./bin/zkCli.sh -server 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183
 ```
 建立ZooKeeper Client端到ZooKeeper集群的连接会话。
+
+
+### **正式环境举例**
+采用上述第1种形式构建一个使用quorum模式的ZooKeeper集群。一共有三台虚拟机，配置为
+
+主机|ip|
+--|--|
+c1|192.168.141.132|
+c2|192.168.141.133|
+c3|192.168.141.134|
+
+1. 以c1为例子做配置
+    1. /usr/local/src/zookeeper-3.4.10/conf/zoo.cfg
+    ```
+    dataDir=/usr/local/src/zookeeper-3.4.10/data
+    dataLogDir=/usr/local/src/zookeeper-3.4.10/logs
+
+    #尾部追加
+    server.1=c1:2888:3888
+    server.2=c2:2888:3888
+    server.3=c3:2888:3888
+    ```
+
+    2. /etc/hosts追加内容
+    ```
+    192.168.141.132 c1
+    192.168.141.133 c2
+    192.168.141.134 c3
+    ```
+
+2. 配置复制，c1配置好第1，2步后，可以登录c2执行一下命令copy文件和配置，c3亦然：
+    ```
+    scp -r bill@192.168.141.132:/usr/local/src/zookeeper-3.4.10 /usr/local/src/zookeeper-3.4.10
+    scp -r bill@192.168.141.132:/etc/hosts  /etc/
+    ```
+
+3. 启动服务，c1，c2，c3执行相同操作
+    1. 关闭防火墙
+    ```bash
+    chkconfig --level 2345 iptables off
+    /etc/init.d/iptables status #查看防火墙状态
+    ```
+    2. 启动服务
+    ```
+    cd /usr/local/src/zookeeper-3.4.10
+    ./bin/zkServer.sh start
+    ```
+4. 执行ZooKeeper命令行client
+    ```bash
+    cd /usr/local/src/zookeeper-3.4.10
+    ./bin/zkCli.sh -server 192.168.141.132:2181,192.168.141.133:2181
+    ```
