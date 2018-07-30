@@ -55,14 +55,23 @@
     ```bash
     chkconfig --level 2345 iptables off #关闭防火墙
     /etc/init.d/iptables status #查看防火墙状态
-    ```
-
-2. centos
-    ```bash
     service iptables stop    #关闭防火墙
     service iptables start   #启动防火墙
     service iptables status  #防火墙状态
     ```
-    最小化安装的centos没有iptables这个命令，使用yum install iptables先把它给装上，然后就可以继续了。
+    如果没有安装，可以执行以下命令安装
+    ```bash
+    yum install iptables
+    ```
 
+2. centos
+    ```bash
+    firewall-cmd --state   #查看防火墙状态。得到结果是running或者not running
+    firewall-cmd --permanent --zone=public --add-port=8080/tcp #永久的添加该端口。去掉--permanent则表示临时  
 
+    systemctl start firewalld.service #开启防火墙的命令
+    systemctl stop firewalld.service #关闭防火墙的命令
+    systemctl enable firewalld.service #开机自动启动
+    systemctl disable firewalld.service #关闭开机自动启动
+    systemctl status firewalld #查看防火墙状态
+    ```

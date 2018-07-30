@@ -13,7 +13,6 @@
 
 参考文档：linux常见软件安装.md，安装tomcat部分
 
-
 **4、 安装maven**
 
 参考文档：Maven安装.md
@@ -28,16 +27,12 @@
     ```bash
     cd dubbo
     mvn install -Dmaven.test.skip=true  #这个编译要花蛮长时间，因为要下载好多jar包
-    cd /usr/local/dubbo/all/target/
-    ll  #可以看到有dubbo-2.7.0-SNAPSHOT.jar，这是最终想要的文件
+    cd /usr/local/dubbo/dubbo-admin/target
+    ll  #可以看到有dubbo-admin-2.6.0.war，这是最终想要的文件
     ```
 3. tomcat启动
     ```bash
-    
-    cd /usr/local/
-    mv apache-tomcat-8.0.53 dubbo-admin-tomcat #重命名tomcat
-    cd dubbo-admin-tomcat
-    rm -rf webapps/*        #删除发布目录下的其他项目
-
-
+    cd /usr/local/apache-tomcat-8.0.53
+    cp /usr/local/dubbo/dubbo-admin/target/dubbo-admin-2.6.0.war ./ #copy文件
+    ./bin/startup.sh    #启动tomcat，此时tomcat端口8080,dubbo-admin-2.6.0项目的dubbo配置是127.0.0.1:2181，部署到其他环境时，要注意配置的修改
     ```
