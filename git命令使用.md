@@ -36,3 +36,14 @@
     ```bash
     git checkout -b dubbo-2.6.0 dubbo-2.6.0
     ```
+
+7. .gitignore文件使用
+    打开改文件，输入一下内容，则以后提交代码时，自动过滤这类的文件
+    ```
+    .idea
+    target
+    .settings
+    *.iml
+    .classpath
+    .project
+    ```

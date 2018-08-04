@@ -32,7 +32,10 @@
     ```
 3. tomcat启动
     ```bash
-    cd /usr/local/apache-tomcat-8.0.53
-    cp /usr/local/dubbo/dubbo-admin/target/dubbo-admin-2.6.0.war ./ #copy文件
+    cd /usr/local/apache-tomcat-8.0.53/webapps/
+    rm -rf *    #删除发布目录的所有项目
+    cp /usr/local/dubbo/dubbo-admin/target/dubbo-admin-2.6.0.war ./ROOT.war #copy文件
     ./bin/startup.sh    #启动tomcat，此时tomcat端口8080,dubbo-admin-2.6.0项目的dubbo配置是127.0.0.1:2181，部署到其他环境时，要注意配置的修改
     ```
+4. 访问
+    http://127.0.0.1:8080/
