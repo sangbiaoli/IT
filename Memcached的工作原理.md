@@ -36,3 +36,29 @@
     * 为了提高性能，MemCached缓存的数据全部存储在MemCached管理的内存中，所以重启服务器之后缓存数据会清空，不支持持久化。
     * 缓存到MemCached中的数据库数据，在更新数据库时要注意同时更新MemCached
     
+### **三、MemCached分布式**
+
+    为了提升MemCached的存储容量和性能，我们应用的客户端可能会对应多个MemCached服务器来提供服务，这就是MemCached的分布式。
+
+1. 分布式实现原理
+
+    MemCached的目前版本是通过C实现，采用了单进程、单线程、异步I/O，基于事件(event_based)的服务方式.使用libevent作为事件通知实现。多个Server可以协同工作，但这些 Server 之间保存的数据各不相同，而且并不通信（与之形成对比的，比如JBoss Cache，某台服务器有缓存数据更新时，会通知集群中其他机器更新缓存或清除缓存数据），每个Server只是对自己的数据进行管理。
+
+    Client端通过IP地址和端口号指定Server端，将需要缓存的数据是以key->value对的形式保存在Server端。key的值通过hash进行转换，根据hash值把value传递到对应的具体的某个Server上。当需要获取对象数据时，也根据key进行。首先对key进行hash，通过获得的值可以确定它被保存在了哪台Server上，然后再向该Server发出请求。Client端只需要知道保存hash(key)的值在哪台服务器上就可以了。
+
+    ![](memcached/memcached_dis.png)
+
+
+    当向MemCached集群存入/取出key/value时，MemCached客户端程序根据一定的算法计算存入哪台服务器，然后再把key/value值存到此服务器中。也就是说，存取数据分二步走，第一步，选择服务器，第二步存取数据。
+
+2. 分布式算法解析
+
+    * 余数算法：
+
+        先求得键的整数散列值（也是就键string的HashCODE值 什么是HashCode），再除以服务器台数，根据余数确定存取服务器，这种方法计算简单，高效，但在memcached服务器增加或减少时，几乎所有的缓存都会失效。
+
+    * 散列算法：
+
+        先算出MemCached服务器的散列值，并将其分布到0到2的32次方的圆上，然后用同样的方法算出存储数据的键的散列值并映射至圆上，最后从数据映射到的位置开始顺时针查找，将数据保存到查找到的第一个服务器上，如果超过2的32次方，依然找不到服务器，就将数据保存到第一台MemCached服务器上。如果添加了一台MemCached服务器，只在圆上增加服务器的逆时针方向的第一台服务器上的键会受到影响。
+
+    ![](memcached/memcached_cycle.png)
