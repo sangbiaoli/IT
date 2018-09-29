@@ -3,11 +3,11 @@
 1. 下载安装包
     ```bash
     cd /usr/local/src
-    wget http://mirror.bit.edu.cn/apache/maven/maven-3/3.5.2/binaries/apache-maven-3.5.2-bin.tar.gz    
+    wget http://mirrors.shu.edu.cn/apache/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz    
     ```
 2. 解压安装
     ```bash
-    tar -zxvf apache-maven-3.5.2-bin.tar.gz 
+    tar -zxvf apache-maven-3.5.4-bin.tar.gz
     ```
 3. 配置环境变量
 
@@ -17,8 +17,7 @@
         ```
     2. 将如下代码追加到profile 文件末尾：
         ```bash
-        export MAVEN_HOME=/usr/local/src/apache-maven-3.5.2
-        export MAVEN_HOME
+        export MAVEN_HOME=/usr/local/src/apache-maven-3.5.4
         export PATH=${MAVEN_HOME}/bin:${PATH}
         ```
 4. 重载/etc/profile这个文件
@@ -31,7 +30,7 @@
     ```
 6. 配置setting.xml
     ```bash
-    vi /usr/local/apache-maven-3.5.2/conf/settings.xml
+    vi /usr/local/src/apache-maven-3.5.4/conf/settings.xml
     ```
     在<profiles></profiles>之间添加内容
     ```xml
