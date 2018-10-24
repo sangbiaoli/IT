@@ -45,9 +45,12 @@
     [root@localhost java]# systemctl is-enabled mysqld.service 
     enabled
     ```
-5. 登录mysql数据库并查看数据库
+5. 登录mysql数据库
     ```bash
     [root@localhost java]# mysql -uroot -p123456
     mysql># show databases
+    mysql># use mysql
+    mysql># grant all privileges on *.* to 'root'@'192.168.*.*' identified by '123456' with grant option; //授权给其他机器访问
+    mysql># flush privileges; //刷新权限
     mysql># quit 
     ```
