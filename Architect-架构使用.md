@@ -297,6 +297,127 @@
     #### 六、总结
     对于项目中需要使用到事务的地方，我建议开发者还是使用spring的TransactionCallback接口来实现事务，不要盲目使用spring事务注解，如果一定要使用注解，那么一定要对spring事务的传播机制和隔离级别有个详细的了解，否则很可能发生意想不到的效果。
 
-12. Hibernate对一二级缓存的使用，Lazy-Load的理解； 
+    原文：https://www.cnblogs.com/wangyayun/p/6530189.html
 
+12. Hibernate对一二级缓存的使用，Lazy-Load的理解
+
+    1. 为什么使用缓存
+
+        hibernate使用缓存减少对数据库的访问次数，从而提升hibernate的执行效率。hibernate中有两种类型的缓存：一级缓存和二级缓存。
+
+    2. 一级缓存
+
+        Hibenate中一级缓存，也叫做session的缓存，当调用session的save/saveOrUpdate/get/load/list/iterator方法的时候，都会把对象放入session的缓存中。
+
+        一级缓存可以在session范围内减少数据库的访问次数，只在session范围有效，session关闭，一级缓存失效。
+
+        session的缓存由hibernate维护， 用户不能操作缓存内容； 如果想操作缓存内容，必须通过hibernate提供的evit/clear方法操作。
+
+        * 特点：
+
+            * 只在当前session范围有效，作用时间短，效果不是特别明显！
+
+            * 在短时间内多次操作数据库，效果比较明显！
+
+        * list和iterator的区别
+
+            * list：
+
+                * 一次把所有的记录都查询出来
+
+                * 会放入缓存，但不会从缓存中获取数据
+
+            * Iterator：
+
+                N+1查询； N表示所有的记录总数，即会先发送一条语句查询所有记录的主键（1），再根据每一个主键再去数据库查询（N）会放入缓存，也会从缓存中取数据
+
+                ```java
+                public void test5()throws Exception{
+                        Session session = sf.openSession();
+                        session.beginTransaction();
+
+                        User user = new User();
+                        user.setUserName("林黛玉");
+                        session.save(user);
+                        user.setUserName("嘉宝");
+                        session.save(user);
+                        session.getTransaction().commit();
+                        session.close();
+                    }
+                ```
+            由于一级缓存的作用，user对象只会被保存一次。
+
+    3. 二级缓存
+
+        Hibernate提供了基于应用程序级别的缓存， 可以跨多个session，即不同的session都可以访问缓存数据。 这个缓存也叫二级缓存。
+
+        Hibernate提供的二级缓存有默认的实现，且是一种可插配的缓存框架！如果用户想用二级缓存，只需要在hibernate.cfg.xml中配置即可； 不想用，直接移除，不影响代码。如果用户觉得hibernate提供的框架框架不好用，自己可以换其他的缓存框架或自己实现缓存框架。
+
+        开启二级缓存：
+
+        list() 默认情况只会放入缓存，不会从一级缓存中取，配置查询缓存，可以让list()查询从二级缓存中取数据。
+
+        ```xml
+        <!--开启二级缓存-->
+        <property name="hibernate.cache.use_second_level_cache">true</property>
+        <!--指定使用的缓存框架-->
+        <property name="hibernate.cache.provider_class">org.hibernate.cache.HashtableCacheProvider</property>
+
+        <!--开启查询缓存-->
+        <property name="hibernate.cache.use_query_cache">true</property>
+        ```
+        指定需要二级缓存的类：
+
+            如果设置了集合缓存，集合所属的元素对象也要放入二级缓存，即Employee。
+        ```xml
+        <!--指定哪一些类需要加入二级缓存-->
+        <class-cache class="com.juaner.department.Employee" usage="read-only"/>
+        <class-cache class="com.juaner.department.Dept" usage="read-only"/>
+        <!--集合缓存，集合所属的类型也要放入二级缓存-->
+        <collection-cache collection="com.juaner.department.Dept.emps" usage="read-only"/>
+        ```
+    　　使用二级缓存：
+
+        　　如果设置了查询缓存，需要手动设置setCacheable(true)。
+
+        ```java
+        @Test
+        public void test1(){
+            Session session = sf.openSession();
+            session.beginTransaction();
+            //setCacheable 指定从二级缓存中找，或放入二级缓存，针对list不从一级缓存中取数据的情况
+            //从缓存中读数据，查询条件必须一致
+            //缓存机制为Map<条件，结果>
+            Query query = session.createQuery("from Dept").setCacheable(true);
+            System.out.println(query.list());
+
+            session.getTransaction().commit();
+            session.close();
+
+            Session session1 = sf.openSession();
+            session1.beginTransaction();
+
+            query = session1.createQuery("from Dept").setCacheable(true);
+            System.out.println(query.list());
+
+            session1.getTransaction().commit();
+            session1.close();
+        }
+        ```
+
+    4. get和load
+        * get: 及时加载，只要调用get方法立刻向数据库查询
+        * load:默认使用懒加载，当用到数据的时候才向数据库查询
+
+    5. 懒加载
+
+        当用到数据的时候才向数据库查询，这就是hibernate的懒加载特性。
+
+        lazy|值
+        --|--
+        true|使用懒加载
+        false|关闭懒加载
+        extra|在集合数据懒加载时候提升效率，在真正使用数据的时候才向数据库发送查询的sql，如果调用集合的size()/isEmpty()方法，只是统计，不真正查询数据！
+
+     参考：https://www.cnblogs.com/zhangzongle/p/5770367.html
 13. mybatis如何实现批量提交？
