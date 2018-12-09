@@ -173,6 +173,144 @@
     2018-10-26 10:49:48.771  INFO 5732 --- [           main] c.daniel.bean.MySpringBeanPostProcessor  : BeanPostProcessor-postProcessAfterInitialization......
     ```
 3. SpringMVC或Struts处理请求的流程。
+    1. SpringMVC的执行流程：
+
+        发送请求——>DispatcherServiet捕获——>HandlerMapping查找Handler返回HandlerExecutionChain——>执行Handler返回ModelAndView ——>选择ViewResoler渲染视图——>返回客户端
+
+        1. 客户端向服务器发送请求，请求被前端控制器DispatcherServlet捕获。
+
+        2. DispatcherServlet对请求URL进行解析，得到请求资源标识符URI，通过URI调用HandlerMapping处理器映射器获取Handler配置的所有相关对象，返回Handler和HandlerExecutionChain。
+
+        3. DispatcherServlet根据获得的Handler选择一个适合的HandlerAdapter处理器适配器，提取Request中的模型数据，填充Handler入参，执行Controller，返回一个ModlerAndView。
+
+        4. DispatcherServlet根据返回的ModlerAndView选择一个合适的ViewResoler。
+
+        5. DispatcherServlet通过ViewResoler结合Model和View来渲染视图。并将渲染结果返回给客户端。
+
+    2. Struts2的执行流程：
+
+        发送请求——>StrutsPrepareAndExecutionFilter拦截——>ActionMapper判断——>ConfigurationManager查找——>创建ActionInvocation实例——>执行相关拦截器——>响应客户端
+
+        1. 客户端发送请求，经过一系列的过滤器，被核心过滤器StrutsPrepareAndExecutionFilter进行拦截。
+
+        2. StrutsPrepareAndExecutionFilter通过ActionMapper来判断是否需要Action来处理，不需要就继续执行，需要的话就交给ActionProxy处理。
+
+        3. ActionProxy通过ConfigurationManager询问框架的配置文件Struts.xml找到对应的Action。
+
+        4. 创建一个ActionInvocation实例，调用对应的方法获取结果集的name，在调用的前后会执行相关的拦截器。
+
+        5. 通过结果集的name找到对应的结果集对浏览器进行响应。
+
+    原文：https://blog.csdn.net/roc_wl/article/details/83043542 
+
+    #### Struts
+    struts的架构图
+    ![](architect/architect-framework-struts.png)
+
+    1. 提交请求
+
+        客户端通过HttpServletRequest向servlet容器（即tomcat）提交一个请求。
+
+        请求经过一系列的过滤器，例如图中的ActionContextCleanUp和Other filter(SlterMesh,etc)等，最后被struts的核心过滤器FilterDispatcher控制到。
+        ![](architect/architect-framework-struts-2.1.3.png)
+
+        注：核心控制器2.1.3版本之后，struts的filterDispatcher核心控制器变成了StrutsPrepareAndExecuteFilte，如图：
+        ![](architect/architect-framework-struts-2.1.4.png)
+
+        被核心控制器控制到之后才会访问Actionmapper来决定是否调用某个action（即用户是否要请求某个action）。如果是其他资源请求例如jsp页面，不会用到action。
+
+    2. 移交控制权
+
+        如果要用到action，核心控制器将控制权交给ActionProxy（即是action的代理）。
+
+        ActionProxy获得控制权之后通过ConfigurationManager对象加载核心配置文件struts.xml。
+
+        Struts的action在这个配置文件进行配置，所以要加载它。
+
+    3. 创建ActionInvocation的实例
+
+        如果在struts.xml找到需要调用的action, ActionProxy会创建一个ActionInvocation的实例。
+        ![](architect/architect-framework-struts-actionInvocation.png)
+
+    4. 调用action前的拦截器
+
+        拦截器是struts2非常重要的概念，是核心功能实现。Struts中的大部分功能通过拦截器实现。
+
+        Actioninvocation包括创建的action实例，同时包括另外非常重要的一部分------拦截器。
+
+        调用action前后还会调用很多的拦截器。
+
+        在调用action之前会依次调用用户所定义的拦截器。
+
+    5. 调用action的业务方法进行业务处理
+
+        当把action前的拦截器执行完之后才会调用action的业务方法进行业务处理，
+
+        然后返回一个Result(业务方法对应String类型的返回值，即是字符串，例如SUCCESS，INPUT，ERROR，NONE，LOGIN和用户自己在struts对应定义result标签name属性的值)
+
+        ![](architect/architect-framework-struts-interceptor.png)
+
+    6. 匹配result
+
+        然后根据返回的字符串来调度我们的视图来匹配我们的struts.xml中对应action标签中的result标签。
+
+        一般来说返回一个jsp的页面，或者调用另外某一个action。
+
+        ![](architect/architect-framework-struts-result.png)
+    7. 反向执行拦截器
+
+        当返回视图之后并没有真正响应用户，还需要把执行过的拦截器倒过来反向执行一遍。
+        ![](architect/architect-framework-struts-interceptor-reverse.png)
+    8. 响应客户端
+
+        当这些拦截器被反向执行之后，通过HttpServletResponse响应客户端的请求。
+        ![](architect/architect-framework-struts-response.png)
+
+    原文：http://www.cnblogs.com/zzfweb/archive/2016/05/23/5521217.html
+
+    #### SpringMVC
+    流程分析：
+    ![](architect/architect-framework-springmvc.png)
+    1. 用户发送请求至前端控制器DispatcherServlet
+    2. DispatcherServlet收到请求调用HandlerMapping处理器映射器。
+    3. 处理器映射器根据请求url找到具体的处理器，生成处理器对象及处理器拦截器(如果有则生成)一并返回DispatcherServlet。
+    4. DispatcherServlet通过HandlerAdapter处理器适配器调用处理器
+    5. 执行处理器(Controller，也叫后端控制器)。
+    6. Controller执行完成返回ModelAndView
+    7. HandlerAdapter将controller执行结果ModelAndView返回给DispatcherServlet
+    8. DispatcherServlet将ModelAndView传给ViewReslover视图解析器
+    9. ViewReslover解析后返回具体View
+    10. DispatcherServlet对View进行渲染视图（即将模型数据填充至视图中）。
+    11. DispatcherServlet响应用户
+
+    组件分析：
+    * DispatcherServlet：前端控制器
+
+        用户请求到达前端控制器，它就相当于mvc模式中的c，dispatcherServlet是整个流程控制的中心，由它调用其它组件处理用户的请求，dispatcherServlet的存在降低了组件之间的耦合性。
+
+    * HandlerMapping：处理器映射器
+
+        HandlerMapping负责根据用户请求找到Handler即处理器，springmvc提供了不同的映射器实现不同的映射方式，例如：配置文件方式，实现接口方式，注解方式等。
+
+    * Handler：处理器
+
+        Handler 是继DispatcherServlet前端控制器的后端控制器，在DispatcherServlet的控制下Handler对具体的用户请求进行处理。
+
+        由于Handler涉及到具体的用户业务请求，所以一般情况需要程序员根据业务需求开发Handler。
+
+    * HandlAdapter：处理器适配器
+
+        通过HandlerAdapter对处理器进行执行，这是适配器模式的应用，通过扩展适配器可以对更多类型的处理器进行执行。
+
+    * View Resolver：视图解析器
+
+        View Resolver负责将处理结果生成View视图，View Resolver首先根据逻辑视图名解析成物理视图名即具体的页面地址，再生成View视图对象，最后对View进行渲染将处理结果通过页面展示给用户。
+
+    * View：视图
+
+        springmvc框架提供了很多的View视图类型的支持，包括：jstlView、freemarkerView、pdfView等。我们最常用的视图就是jsp。
+
+    原文：https://blog.csdn.net/qq_41907991/article/details/81392820 
 
 4. Spring AOP解决了什么问题？怎么实现的？
 
