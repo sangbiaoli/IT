@@ -199,7 +199,40 @@
 
 2. 用Java写一个冒泡排序算法
    ```java
-  
+    package com.fhcq.bubblesort;
+
+    public class BubbleSort {
+        //主方法
+        public static void main(String[] args) {
+            int[] arr = { 3, 5, 7, 1, 8, 11, 9}; //定义数组 
+            bubbleSort (arr); //开始排序
+        }
+
+        //排序方法
+        public static void bubbleSort(int[] arrys) {
+            //定义临时变量 temp
+            int temp = 0;
+            //用j为下标，遍历数组
+            for (int j = 0; j < arrys.length; j++) {
+            //对于每一个数组元素，从0到还未来排序的最大下标，总是把最大的数字放在后面
+            for(int k = 0;k < arrys.length-j-1; k++){
+                if(arrys[k] > arrys[k+1]){ //判断当前数字与后面数字的大小
+                temp = arrys[k];
+                arrys[k] = arrys[k+1];
+                arrys[k+1] = temp; //用temp变量进行换值
+                }
+            }
+        }
+            bubblePrint(arrys); //打印
+        }
+        //打印方法
+        public static void bubblePrint(int[] before){
+            for(int i = 0;i < before.length; i++){ //遍历
+            System.out.print(before[i] + ""); //打印，以空格隔开
+            }
+            System.out.println();//换行
+        }
+    }
    ```
 3. 描述一下链式存储结构
 
