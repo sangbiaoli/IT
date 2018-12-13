@@ -775,3 +775,111 @@
 
      参考：https://www.cnblogs.com/zhangzongle/p/5770367.html
 13. mybatis如何实现批量提交？
+
+    #### MyBatis中批量插入  
+    1. 方法一：
+        ```xml
+        <insert id="insertbatch" parameterType="java.util.List">
+            <selectKey keyProperty="fetchTime" order="BEFORE" resultType="java.lang.String">
+            SELECT CURRENT_TIMESTAMP()
+            </selectKey>
+            insert into kangaiduoyaodian ( depart1, depart2, product_name,generic_name, img, product_specification, unit,
+            approval_certificate, manufacturer, marketPrice, vipPrice,website, fetch_time, productdesc ) values
+            <foreach collection="list" item="item" index="index" separator=",">
+            ( 
+                #{item.depart1},
+                #{item.depart2}, 
+                #{item.productName},
+                #{item.genericName}, 
+                #{item.img},
+                #{item.productSpecification},
+                #{item.unit},
+                #{item.approvalCertificate}, 
+                #{item.manufacturer},
+                #{item.marketprice}, 
+                #{item.vipprice}, 
+                #{item.website},
+                #{fetchTime}, 
+                #{item.productdesc} 
+            )
+            </foreach>
+        </insert>
+        ```
+    2. 方法二：
+        ```xml
+        <insert id="batchInsertB2B" parameterType="ArrayList">
+            insert into xxxxtable(hkgs,hkgsjsda,office,asdf,ddd,ffff,supfullName,classtype,agent_type,remark)
+            <foreach collection="list" item="item" index="index" separator="union all">
+            select 
+                #{item.hkgs,jdbcType=VARCHAR},
+                #{item.hkgsjsda,jdbcType=VARCHAR},
+                #{item.office,jdbcType=VARCHAR},
+                #{item.asdf,jdbcType=VARCHAR},
+                #{item.ddd,jdbcType=VARCHAR},
+                #{item.ffff,jdbcType=VARCHAR},
+                #{item.supfullName,jdbcType=VARCHAR},0,0,
+                #{item.remark,jdbcType=VARCHAR} 
+            from dual
+            </foreach>
+        </insert>
+        ```
+    3. 可以考虑用union all来实现批量插入
+
+        例如：
+        insert into XX_TABLE(XX,XX,XX)select 'xx','xx','xx' union all select 'xx','xx','xx' union all select 'xx','xx','xx' ...
+        先拼装好语句再动态传入insert into XX_TABLE(XX,XX,XX)后面部分
+
+    #### MyBatis中批量删除
+       
+    ```xml
+    <!-- 通过主键集合批量删除记录 -->
+    <delete id="batchRemoveUserByPks" parameterType="java.util.List">
+        DELETE FROM LD_USER WHERE ID in 
+        <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+        #{item}
+        </foreach>
+    </delete>
+    ```
+
+    #### MyBatis中in子句
+    mybatis in 参数 使用方法
+    1. 只有一个参数
+
+        参数的类型要声明为List或Array，Sql配置如下：
+        ```xml
+        <select id="selectProduct" resultMap="Map">
+            SELECT *
+            FROM PRODUCT
+            WHERE PRODUCTNO IN
+            <foreach item="productNo" index="index" collection="参数的类型List或array">
+                    #{productNo}
+            </foreach>
+        </select>
+        ```
+    2. 多个参数
+
+        首先要将多个参数写入同一个map，将map作为一个参数传入mapper，Sql配置如下：
+
+        ```xml
+        <select id="selectProduct" resultMap="Map">
+            SELECT *
+            FROM PRODUCT
+            WHERE PRODUCTNO IN
+            <foreach item="productNo" index="index" collection="map中集合参数的名称">
+                    #{productNo}
+            </foreach>
+        </select>
+         ```
+    #### MyBatis批量修改
+    ```xml
+    <update id="updateOrders" parameterType="java.util.List">
+        update orders set state = '0' where no in
+        <foreach collection="list" item="nos" open="(" separator="," close=")">
+        #{nos}
+        </foreach>
+    </update>
+    ```
+
+    总结：mysql数据库在操作时，sql的长度是有限制的。所以在批处理时分批要合理避免出现sql过长的限制。可以用多线程执行批处理，提高速度。
+
+    原文：http://www.cnblogs.com/duanxz/p/3838352.html
