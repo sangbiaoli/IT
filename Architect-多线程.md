@@ -533,15 +533,631 @@
 
 12. sleep和wait区别
 
-13. notify和notifyAll区别
+    1. 来自不同的类
 
-14. volatile关键字的作
+        这两个方法来自不同的类分别是，sleep来自Thread类，和wait来自Object类。
+
+        sleep是Thread的静态类方法，谁调用的谁去睡觉，即使在a线程里调用了b的sleep方法，实际上还是a去睡觉，要让b线程睡觉要在b的代码中调用sleep。
+
+    2. 有没有释放锁(释放资源)
+
+        最主要是sleep方法没有释放锁，而wait方法释放了锁，使得其他线程可以使用同步控制块或者方法。
+
+        sleep不出让系统资源；wait是进入线程等待池等待，出让系统资源，其他线程可以占用CPU。一般wait不会加时间限制，因为如果wait线程的运行资源不够，再出来也没用，要等待其他线程调用notify/notifyAll唤醒等待池中的所有线程，才会进入就绪队列等待OS分配系统资源。sleep(milliseconds)可以用时间指定使它自动唤醒过来，如果时间不到只能调用interrupt()强行打断。
+
+        Thread.Sleep(0)的作用是“触发操作系统立刻重新进行一次CPU竞争”。
+
+        sleep是线程被调用时，占着cpu去睡觉，其他线程不能占用cpu，os认为该线程正在工作，不会让出系统资源，wait是进入等待池等待，让出系统资源，其他线程可以占用cpu，一般wait不会加时间限制，因为如果wait的线程运行资源不够，再出来也没用，要等待其他线程调用notifyall方法唤醒等待池中的所有线程，才会在进入就绪序列等待os分配系统资源，
+
+        sleep是静态方法，是谁掉的谁去睡觉，就算是在main线程里调用了线程b的sleep方法，实际上还是main去睡觉，想让线程b去睡觉要在b的代码中掉sleep
+
+        sleep(100L)是占用cpu，线程休眠100毫秒，其他进程不能再占用cpu资源，wait（100L）是进入等待池中等待，交出cpu等系统资源供其他进程使用，在这100毫秒中，该线程可以被其他线程notify，但不同的是其他在等待池中的线程不被notify不会出来，但这个线程在等待100毫秒后会自动进入就绪队列等待系统分配资源，换句话说，sleep（100）在100毫秒后肯定会运行，但wait在100毫秒后还有等待os调用分配资源，所以wait100的停止运行时间是不确定的，但至少是100毫秒。
+
+        就是说sleep有时间限制的就像闹钟一样到时候就叫了，而wait是无限期的除非用户主动notify
+
+    3. 使用范围不同
+
+        wait，notify和notifyAll只能在同步控制方法或者同步控制块里面使用，而sleep可以在任何地方使用
+        ```java
+        synchronized(x){
+            x.notify()
+            //或者wait()
+        }
+        ```
+    4. 是否需要捕获异常
+
+        sleep必须捕获异常，而wait，notify和notifyAll不需要捕获异常。
+
+    原文：http://www.sohu.com/a/257079740_630789
+
+13. notify和notifyAll区别
+    今天正好碰到这个问题，也疑惑了好久。看了一圈知乎上的答案，感觉没说到根上。所以自己又好好Google了一下，终于找到了让自己信服的解释。
+
+    #### 先说两个概念：锁池和等待池
+
+    * 锁池:假设线程A已经拥有了某个对象(注意:不是类)的锁，而其它的线程想要调用这个对象的某个synchronized方法(或者synchronized块)，由于这些线程在进入对象的synchronized方法之前必须先获得该对象的锁的拥有权，但是该对象的锁目前正被线程A拥有，所以这些线程就进入了该对象的锁池中。
+    * 等待池:假设一个线程A调用了某个对象的wait()方法，线程A就会释放该对象的锁后，进入到了该对象的等待池中
+    Reference：java中的锁池和等待池
+
+    #### 然后再来说notify和notifyAll的区别
+
+    如果线程调用了对象的 wait()方法，那么线程便会处于该对象的等待池中，等待池中的线程不会去竞争该对象的锁。
+    当有线程调用了对象的 notifyAll()方法（唤醒所有 wait 线程）或 notify()方法（只随机唤醒一个 wait 线程），被唤醒的的线程便会进入该对象的锁池中，锁池中的线程会去竞争该对象锁。也就是说，调用了notify后只要一个线程会由等待池进入锁池，而notifyAll会将该对象等待池内的所有线程移动到锁池中，等待锁竞争
+    优先级高的线程竞争到对象锁的概率大，假若某线程没有竞争到该对象锁，它还会留在锁池中，唯有线程再次调用 wait()方法，它才会重新回到等待池中。而竞争到对象锁的线程则继续往下执行，直到执行完了 synchronized 代码块，它会释放掉该对象锁，这时锁池中的线程会继续竞争该对象锁。
+    Reference：线程间协作：wait、notify、notifyAll
+    综上，所谓唤醒线程，另一种解释可以说是将线程由等待池移动到锁池，notifyAll调用后，会将全部线程由等待池移到锁池，然后参与锁的竞争，竞争成功则继续执行，如果不成功则留在锁池等待锁被释放后再次参与竞争。而notify只会唤醒一个线程。
+
+    有了这些理论基础，后面的notify可能会导致死锁，而notifyAll则不会的例子也就好解释了
+
+    例子：
+    ```java
+    package com.sangbill.test;
+
+    public class WaitAndNotify {
+        public static void main(String[] args) {
+            Object co = new Object();
+            System.out.println(co);
+
+            for (int i = 0; i < 5; i++) {
+                MyThread t = new MyThread("Thread" + i, co);
+                t.start();
+            }
+
+            try {
+                TimeUnit.SECONDS.sleep(2);
+                System.out.println("-----Main Thread notify-----");
+                synchronized (co) {
+                    co.notify();
+                }
+
+                TimeUnit.SECONDS.sleep(2);
+                System.out.println("Main Thread is end.");
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        static class MyThread extends Thread {
+            private String name;
+            private Object co;
+
+            public MyThread(String name, Object o) {
+                this.name = name;
+                this.co = o;
+            }
+
+            @Override
+            public void run() {
+                System.out.println(name + " is waiting.");
+                try {
+                    synchronized (co) {
+                        co.wait();
+                    }
+                    System.out.println(name + " has been notified.");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    ```
+ 
+    运行结果：
+
+    ```
+    java.lang.Object@1540e19d
+    Thread1 is waiting.
+    Thread2 is waiting.
+    Thread0 is waiting.
+    Thread3 is waiting.
+    Thread4 is waiting.
+    -----Main Thread notify-----
+    Thread1 has been notified.
+    Main Thread is end.
+    ```
+
+    将其中的那个notify换成notifyAll，运行结果：
+    ```
+    Thread0 is waiting.
+    Thread1 is waiting.
+    Thread2 is waiting.
+    Thread3 is waiting.
+    Thread4 is waiting.
+    -----Main Thread notifyAll-----
+    Thread4 has been notified.
+    Thread2 has been notified.
+    Thread1 has been notified.
+    Thread3 has been notified.
+    Thread0 has been notified.
+    Main Thread is end.
+    ```
+    运行环境jdk8，结论：
+    notify唤醒一个等待的线程；notifyAll唤醒所有等待的线程。
+    ```
+    原文：https://blog.csdn.net/djzhao/article/details/79410229 
+
+14. volatile关键字的作用
+    volatile两大作用
+
+    1. 保证内存可见性
+    2. 防止指令重排
+
+    此外需注意volatile并不保证操作的原子性。
+
+    #### 内存可见性
+    1. 概念
+
+        JVM内存模型：主内存和线程独立的工作内存
+
+        Java内存模型规定，对于多个线程共享的变量，存储在主内存当中，每个线程都有自己独立的工作内存（比如CPU的寄存器），线程只能访问自己的工作内存，不可以访问其它线程的工作内存。
+
+        工作内存中保存了主内存共享变量的副本，线程要操作这些共享变量，只能通过操作工作内存中的副本来实现，操作完毕之后再同步回到主内存当中。
+
+        如何保证多个线程操作主内存的数据完整性是一个难题，Java内存模型也规定了工作内存与主内存之间交互的协议，定义了8种原子操作：
+
+        (1) lock:将主内存中的变量锁定，为一个线程所独占
+
+        (2) unclock:将lock加的锁定解除，此时其它的线程可以有机会访问此变量
+
+        (3) read:将主内存中的变量值读到工作内存当中
+
+        (4) load:将read读取的值保存到工作内存中的变量副本中。
+
+        (5) use:将值传递给线程的代码执行引擎
+
+        (6) assign:将执行引擎处理返回的值重新赋值给变量副本
+
+        (7) store:将变量副本的值存储到主内存中。
+
+        (8) write:将store存储的值写入到主内存的共享变量当中。
+
+        通过上面Java内存模型的概述，我们会注意到这么一个问题，每个线程在获取锁之后会在自己的工作内存来操作共享变量，操作完成之后将工作内存中的副本回写到主内存，并且在其它线程从主内存将变量同步回自己的工作内存之前，共享变量的改变对其是不可见的。即其他线程的本地内存中的变量已经是过时的，并不是更新后的值。
+
+
+    2. 内存可见性带来的问题
+
+        很多时候我们需要一个线程对共享变量的改动，其它线程也需要立即得知这个改动该怎么办呢？下面举两个例子说明内存可见性的重要性：
+
+        例子1
+        有一个全局的状态变量open:
+
+        boolean open=true;
+
+        这个变量用来描述对一个资源的打开关闭状态，true表示打开，false表示关闭，假设有一个线程A,在执行一些操作后将open修改为false:        
+
+        //线程A
+        ```java
+        resource.close();
+        open = false;     
+        ```
+        线程B随时关注open的状态，当open为true的时候通过访问资源来进行一些操作:
+
+        //线程B
+        ```java
+        while(open) {
+            doSomethingWithResource(resource);
+        }
+        ```
+        当A把资源关闭的时候，open变量对线程B是不可见的，如果此时open变量的改动尚未同步到线程B的工作内存中,那么线程B就会用一个已经关闭了的资源去做一些操作，因此产生错误。
+
+        例子2
+        下面是一个通过布尔标志判断线程是否结束的例子：
+        ```java
+        public class CancelThreadTest {
+
+            public static void main(String[] args) throws Exception {
+                PrimeGenerator gen = new PrimeGenerator();
+                new Thread(gen).start();
+                try {
+                    Thread.sleep(3000);
+                } finally {
+                    gen.cancel();
+                }
+            }
+        }
+        ```
+        ```java
+        class PrimeGenerator implements Runnable {
+            private boolean cancelled;
+            @Override
+            public void run() {
+                while (!cancelled)		{
+                    System.out.println("Running...");
+                    // doingsomething here...
+                }
+            }
+
+            public void cancel() {
+                cancelled = true;
+            }
+        }
+        ```
+
+        主线程中设置PrimeGenerator线程的是否取消标识，PrimeGenerator线程检测到这个标识后就会结束线程，由于主线程修改cancelled变量的内存可见性，主线程修改cancelled标识后并不马上同步回主内存，所以PrimeGenerator线程结束的时间难以把控（最终是一定会同步回主内存，让PrimeGenerator线程结束）。
+
+        如果PrimeGenerator线程执行一些比较关键的操作，主线程希望能够及时终止它，这时将cenceled用volatile关键字修饰就是必要的。
+
+        特别注意：上面演示这个并不是正确的取消线程的方法，因为一旦PrimeGenerator线程中包含BolckingQueue.put()等阻塞方法，那么将可能永远不会去检查cancelled标识，导致线程永远不会退出。正确的方法参见另外一篇关于如何正确终止线程的方法。
+
+
+    3. 提供内存可见性
+        volatile保证可见性的原理是在每次访问变量时都会进行一次刷新，因此每次访问都是主内存中最新的版本。所以volatile关键字的作用之一就是保证变量修改的实时可见性。
+  
+        针对上面的例子1：
+
+        要求一个线程对open的改变，其他的线程能够立即可见，Java为此提供了volatile关键字，在声明open变量的时候加入volatile关键字就可以保证open的内存可见性，即open的改变对所有的线程都是立即可见的。        
+
+        针对上面的例子2：
+
+        将cancelled标志设置的volatile保证主线程针对cancelled标识的修改能够让PrimeGenerator线程立马看到。
+
+         
+
+        备注：也可以通过提供synchronized同步的open变量的Get/Set方法解决此内存可见性问题，因为要Get变量open，必须等Set方完全释放锁之后。后面将介绍到两者的区别。
+
+     
+
+    #### 指令重排
+    1. 概念
+
+        指令重排序是JVM为了优化指令，提高程序运行效率，在不影响单线程程序执行结果的前提下，尽可能地提高并行度。编译器、处理器也遵循这样一个目标。注意是单线程。多线程的情况下指令重排序就会给程序员带来问题。
+
+        不同的指令间可能存在数据依赖。比如下面计算圆的面积的语句：
+        ```JAVA
+        double r = 2.3d;//(1)
+        double pi =3.1415926; //(2)
+        double area = pi* r * r; //(3)
+        ```
+        area的计算依赖于r与pi两个变量的赋值指令。而r与pi无依赖关系。
+
+        as-if-serial语义是指：不管如何重排序（编译器与处理器为了提高并行度），（单线程）程序的结果不能被改变。这是编译器、Runtime、处理器必须遵守的语义。
+
+        虽然，（1） - happensbefore -> （2）,（2） - happens before -> （3），但是计算顺序(1)(2)(3)与(2)(1)(3) 对于r、pi、area变量的结果并无区别。编译器、Runtime在优化时可以根据情况重排序（1）与（2），而丝毫不影响程序的结果。
+
+        指令重排序包括编译器重排序和运行时重排序。
+
+    2. 指令重排带来的问题
+
+        如果一个操作不是原子的，就会给JVM留下重排的机会。下面看几个例子：
+
+        例子1：A线程指令重排导致B线程出错
+        对于在同一个线程内，这样的改变是不会对逻辑产生影响的，但是在多线程的情况下指令重排序会带来问题。看下面这个情景:
+
+        在线程A中:
+        ```java
+        context = loadContext();
+        inited = true;
+        ```
+        在线程B中:
+        ```java
+        while(!inited ){ //根据线程A中对inited变量的修改决定是否使用context变量
+           sleep(100);
+        }
+        doSomethingwithconfig(context);
+        ```
+         
+        假设线程A中发生了指令重排序:
+        ```java
+        inited = true;
+        context = loadContext();
+        ```
+        那么B中很可能就会拿到一个尚未初始化或尚未初始化完成的context,从而引发程序错误。
+
+        例子2：指令重排导致单例模式失效
+
+        我们都知道一个经典的懒加载方式的双重判断单例模式：
+
+        ```java
+        public class Singleton {
+
+            private static Singleton instance = null;
+
+            private Singleton() {
+            }
+
+            public static Singleton getInstance() {
+                if (instance == null) {
+                    synchronized (instance) {
+                        instance = new Singleton(); // 非原子操作
+                    }
+                }
+                return instance;
+            }
+        }
+        ```
+
+        看似简单的一段赋值语句：instance= new Singleton()，但是很不幸它并不是一个原子操作，其实际上可以抽象为下面几条JVM指令：
+        ```java
+        memory = allocate();    //1：分配对象的内存空间 
+        ctorInstance(memory);  //2：初始化对象 
+        instance =memory;     //3：设置instance指向刚分配的内存地址 
+        ```
+         
+
+        上面操作2依赖于操作1，但是操作3并不依赖于操作2，所以JVM是可以针对它们进行指令的优化重排序的，经过重排序后如下：
+        ```java
+        memory =allocate();    //1：分配对象的内存空间 
+        instance =memory;     //3：instance指向刚分配的内存地址，此时对象还未初始化
+        ctorInstance(memory);  //2：初始化对象
+        ```
+        可以看到指令重排之后，instance指向分配好的内存放在了前面，而这段内存的初始化被排在了后面。
+
+        在线程A执行这段赋值语句，在初始化分配对象之前就已经将其赋值给instance引用，恰好另一个线程进入方法判断instance引用不为null，然后就将其返回使用，导致出错。
+
+
+    3. 防止指令重排
+
+        除了前面内存可见性中讲到的volatile关键字可以保证变量修改的可见性之外，还有另一个重要的作用：在JDK1.5之后，可以使用volatile变量禁止指令重排序。           
+
+        解决方案：例子1中的inited和例子2中的instance以关键字volatile修饰之后，就会阻止JVM对其相关代码进行指令重排，这样就能够按照既定的顺序指执行。
+
+        volatile关键字通过提供“内存屏障”的方式来防止指令被重排序，为了实现volatile的内存语义，编译器在生成字节码时，会在指令序列中插入内存屏障来禁止特定类型的处理器重排序。
+
+        大多数的处理器都支持内存屏障的指令。
+
+        对于编译器来说，发现一个最优布置来最小化插入屏障的总数几乎不可能，为此，Java内存模型采取保守策略。下面是基于保守策略的JMM内存屏障插入策略：
+
+        在每个volatile写操作的前面插入一个StoreStore屏障。
+
+        在每个volatile写操作的后面插入一个StoreLoad屏障。
+
+        在每个volatile读操作的后面插入一个LoadLoad屏障。
+
+        在每个volatile读操作的后面插入一个LoadStore屏障。
+
+
+    #### 总结
+
+    volatile是轻量级同步机制
+    相对于synchronized块的代码锁，volatile应该是提供了一个轻量级的针对共享变量的锁，当我们在多个线程间使用共享变量进行通信的时候需要考虑将共享变量用volatile来修饰。
+
+    volatile是一种稍弱的同步机制，在访问volatile变量时不会执行加锁操作，也就不会执行线程阻塞，因此volatilei变量是一种比synchronized关键字更轻量级的同步机制。
+
+    volatile使用建议
+    使用建议：在两个或者更多的线程需要访问的成员变量上使用volatile。当要访问的变量已在synchronized代码块中，或者为常量时，没必要使用volatile。
+
+    由于使用volatile屏蔽掉了JVM中必要的代码优化，所以在效率上比较低，因此一定在必要时才使用此关键字。
+
+    volatile和synchronized区别
+
+    1. volatile不会进行加锁操作：
+
+    volatile变量是一种稍弱的同步机制在访问volatile变量时不会执行加锁操作，因此也就不会使执行线程阻塞，因此volatile变量是一种比synchronized关键字更轻量级的同步机制。
+
+    2. volatile变量作用类似于同步变量读写操作：
+
+    从内存可见性的角度看，写入volatile变量相当于退出同步代码块，而读取volatile变量相当于进入同步代码块。
+
+    3. volatile不如synchronized安全：
+
+    在代码中如果过度依赖volatile变量来控制状态的可见性，通常会比使用锁的代码更脆弱，也更难以理解。仅当volatile变量能简化代码的实现以及对同步策略的验证时，才应该使用它。一般来说，用同步机制会更安全些。
+
+    4. volatile无法同时保证内存可见性和原则性：
+
+    加锁机制（即同步机制）既可以确保可见性又可以确保原子性，而volatile变量只能确保可见性，原因是声明为volatile的简单变量如果当前值与该变量以前的值相关，那么volatile关键字不起作用，也就是说如下的表达式都不是原子操作：“count++”、“count = count+1”。
+
+
+    当且仅当满足以下所有条件时，才应该使用volatile变量：
+
+    1. 对变量的写入操作不依赖变量的当前值，或者你能确保只有单个线程更新变量的值。
+
+    2. 该变量没有包含在具有其他变量的不变式中。        
+
+    总结：在需要同步的时候，第一选择应该是synchronized关键字，这是最安全的方式，尝试其他任何方式都是有风险的。尤其在、jdK1.5之后，对synchronized同步机制做了很多优化，如：自适应的自旋锁、锁粗化、锁消除、轻量级锁等，使得它的性能明显有了很大的提升。
+
+    原文：https://blog.csdn.net/jiyiqinlovexx/article/details/50989328 
 
 15. ThreadLocal的作用与实现
 
+    Why ThreadLocal?
+
+    无论如何，要编写一个多线程安全(Thread-safe)的程序是困难的，为了让线程共享资源，必须小心地对共享资源进行同步，同步带来一定的效能延迟，而另一方面，在处理同步的时候，又要注意对象的锁定与释放，避免产生死结，种种因素都使得编写多线程程序变得困难。
+
+    尝试从另一个角度来思考多线程共享资源的问题，既然共享资源这么困难，那么就干脆不要共享，何不为每个线程创造一个资源的复本。将每一个线程存取数据的行为加以隔离，实现的方法就是给予每个线程一个特定空间来保管该线程所独享的资源
+
+    什么是ThreadLocal？
+
+    顾名思义它是local variable（线程局部变量）。它的功用非常简单，就是为每一个使用该变量的线程都提供一个变量值的副本，是每一个线程都可以独立地改变自己的副本，而不会和其它线程的副本冲突。从线程的角度看，就好像每一个线程都完全拥有该变量。
+
+    使用场景
+    ```
+    To keep state with a thread (user-id, transaction-id, logging-id)
+    To cache objects which you need frequently
+    ```
+
+    ThreadLocal类
+
+    它主要由四个方法组成initialValue()，get()，set(T)，remove()，其中值得注意的是initialValue()，该方法是一个protected的方法，显然是为了子类重写而特意实现的。该方法返回当前线程在该线程局部变量的初始值，这个方法是一个延迟调用方法，在一个线程第1次调用get()或者set(Object)时才执行，并且仅执行1次。ThreadLocal中的确实实现直接返回一个null：
+
+
+    ThreadLocal的原理
+
+    ThreadLocal是如何做到为每一个线程维护变量的副本的呢？其实实现的思路很简单，在ThreadLocal类中有一个Map，用于存储每一个线程的变量的副本。比如下面的示例实现：
+
+    ```java
+    public class ThreadLocal {
+
+        private Map values = Collections.synchronizedMap(new HashMap());
+
+        public Object get() {
+            Thread curThread = Thread.currentThread();
+            Object o = values.get(curThread);
+            if (o == null && !values.containsKey(curThread)) {
+                o = initialValue();
+                values.put(curThread, o);
+            }
+            return o;
+        }
+
+        public void set(Object newValue) {
+            values.put(Thread.currentThread(), newValue);
+        }
+
+        public Object initialValue() {
+            return null;
+        }
+    }
+    ```
+
+    ThreadLocal 的使用
+
+    使用方法一：
+
+    Hibernate的文档时看到了关于使ThreadLocal管理多线程访问的部分。具体代码如下
+    ```java
+    public static final ThreadLocal session = new ThreadLocal();
+
+	public static Session currentSession() {
+		Session s = (Session) session.get();
+		// open a new session,if this session has none
+		if (s == null) {
+			s = sessionFactory.openSession();
+			session.set(s);
+		}
+		return s;
+	}
+    ```
+
+    我们逐行分析
+    1. 初始化一个ThreadLocal对象，ThreadLocal有三个成员方法 get()、set()、initialvalue()。
+        如果不初始化initialvalue，则initialvalue返回null。
+    2. session的get根据当前线程返回其对应的线程内部变量，也就是我们需要
+        net.sf.hibernate.Session（相当于对应每个数据库连接）.多线程情况下共享数据库链接是不安全的。ThreadLocal保证了每个线程都有自己的s（数据库连接）。
+    3. 如果是该线程初次访问，自然，s（数据库连接）会是null，接着创建一个Session，具体就是行6。
+    4. 创建一个数据库连接实例 s
+    5. 保存该数据库连接s到ThreadLocal中。
+    6. 如果当前线程已经访问过数据库了，则从session中get()就可以获取该线程上次获取过的连接实例。
+
+    使用方法二
+
+    当要给线程初始化一个特殊值时，需要自己实现ThreadLocal的子类并重写该方法，通常使用一个内部匿名类对ThreadLocal进行子类化，EasyDBO中创建jdbc连接上下文就是这样做的：
+    ```java
+    public class JDBCContext {
+        private static Logger logger = Logger.getLogger(JDBCContext.class);
+        private DataSource ds;
+        protected Connection connection;
+        private boolean isValid = true;
+        private static ThreadLocal jdbcContext;
+
+        private JDBCContext(DataSource ds) {
+            this.ds = ds;
+            createConnection();
+        }
+
+        public static JDBCContext getJdbcContext(javax.sql.DataSource ds) {
+            if (jdbcContext == null)
+                jdbcContext = new JDBCContextThreadLocal(ds);
+            JDBCContext context = (JDBCContext) jdbcContext.get();
+            if (context == null) {
+                context = new JDBCContext(ds);
+            }
+            return context;
+        }
+
+        private static class JDBCContextThreadLocal extends ThreadLocal {
+            public javax.sql.DataSource ds;
+
+            public JDBCContextThreadLocal(javax.sql.DataSource ds) {
+                this.ds = ds;
+            }
+
+            protected synchronized Object initialValue() {
+                return new JDBCContext(ds);
+            }
+        }
+    }
+    ```
+
+    使用单例模式，不同的线程调用getJdbcContext()获得自己的jdbcContext，都是通过JDBCContextThreadLocal 内置子类来获得JDBCContext对象的线程局部变量
+
+    原文：https://blog.csdn.net/yuebinghaoyuan/article/details/7233687
+
 16. 两个线程如何串行执行
+    
+    设置一个静态变量state，当state=1时，线程1执行否则等待，state=2时，线程2执行否则等待。
+
+    java让2个线程交替执行，每个线程执行1秒：
+    ```java
+    /**
+    * Created by Administrator on 2017/10/17.
+    */
+    public class Test2 {
+        private static  int state = 1;
+    
+        public static void main(String[] args) {
+            final Test2 t=new Test2();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        synchronized (t) {
+                            if (state != 1) {
+                                try {
+                                    t.wait();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            try {
+                                System.out.println("轮到线程一开始执行");
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            //线程1执行一秒
+                            state=2;
+                            t.notifyAll();
+                        }
+                    }
+                }
+            }).start();
+    
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        synchronized (t) {
+                            if (state != 2) {
+                                try {
+                                    t.wait();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            try {
+                                System.out.println("轮到线程二开始执行");
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            //线程1执行一秒
+                            state=1;
+                            t.notifyAll();
+                        }
+                    }
+                }
+            }).start();
+        }
+    }
+    ```
+    原文：https://blog.csdn.net/java1993666/article/details/78258255 
 
 17. 上下文切换是什么含义
+
+    支持多任务处理是CPU设计史上最大的跨越之一。在计算机中，多任务处理是指同时运行两个或多个程序。从使用者的角度来看，这看起来并不复杂或者难以实现，但是它确实是计算机设计史上一次大的飞跃。在多任务处理系统中，CPU需要处理所有程序的操作，当用户来回切换它们时，需要记录这些程序执行到哪里。上下文切换就是这样一个过程，他允许CPU记录并恢复各种正在运行程序的状态，使它能够完成切换操作。
+
+    在上下文切换过程中，CPU会停止处理当前运行的程序，并保存当前程序运行的具体位置以便之后继续运行。从这个角度来看，上下文切换有点像我们同时阅读几本书，在来回切换书本的同时我们需要记住每本书当前读到的页码。在程序中，上下文切换过程中的“页码”信息是保存在进程控制块（PCB）中的。PCB还经常被称作“切换桢”（switchframe）。“页码”信息会一直保存到CPU的内存中，直到他们被再次使用。
+
+    在三种情况下可能会发生上下文切换：中断处理，多任务处理，用户态切换。
+    
+    * 在中断处理中，其他程序”打断”了当前正在运行的程序。当CPU接收到中断请求时，会在正在运行的程序和发起中断请求的程序之间进行一次上下文切换。
+    * 在多任务处理中，CPU会在不同程序之间来回切换，每个程序都有相应的处理时间片，CPU在两个时间片的间隔中进行上下文切换。
+    * 对于一些操作系统，当进行用户态切换时也会进行一次上下文切换，虽然这不是必须的。
+
+    操作系统或者计算机硬件都支持上下文切换。一些现代操作系统通过系统本身来控制上下文切换，整个切换过程中并不依赖于硬件的支持，这样做可以让操作系统保存更多的上下文切换信息(译者注：软件可以更有选择性的保存需要保存的部分)。
+
+    原文：http://ifeve.com/what-is-context-switching/
 
 18. 可以运行时kill掉一个线程吗？
 
