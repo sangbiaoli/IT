@@ -67,6 +67,7 @@
     原文：https://blog.csdn.net/hongchangfirst/article/details/26004335
 
 3. 数据库隔离级别是什么？有什么作用？
+
     数据库事务的隔离级别有4种，由低到高分别为Read uncommitted 、Read committed 、Repeatable read 、Serializable 。而且，在事务的并发操作中可能会出现脏读，不可重复读，幻读。下面通过事例一一阐述它们的概念与联系。
 
     #### Read uncommitted
@@ -119,9 +120,9 @@
 
     2. 主从同步有什么好处？
 
-        水平扩展数据库的负载能力。
-        容错，高可用。Failover(失败切换)/High Availability
-        数据备份。
+        * 水平扩展数据库的负载能力。
+        * 容错，高可用。Failover(失败切换)/High Availability
+        * 数据备份。
 
     3. 主从同步的原理是什么？
 
@@ -129,70 +130,128 @@
 
         如下图：
 
-        
+        ![](architect/architect-db-master-slave-structure.png)
 
         不管是delete、update、insert，还是创建函数、存储过程，所有的操作都在master上。当master有操作的时候,slave会快速的接收到这些操作，从而做同步。
 
         但是，这个机制是怎么实现的呢？
 
-        在master机器上，主从同步事件会被写到特殊的log文件中(binary-log);在slave机器上，slave读取主从同步事件，并根据读取的事件变化，在slave库上做相应的更改。
+        在master机器上，主从同步事件会被写到特殊的log文件中(binary-log);
+        在slave机器上，slave读取主从同步事件，并根据读取的事件变化，在slave库上做相应的更改。
+
         如此，就实现了主从同步了！
 
         下面我们来详细的了解。
 
         1. 主从同步事件有哪些
 
-        上面说到：
+            上面说到：
 
-        在master机器上，主从同步事件会被写到特殊的log文件中(binary-log);
-        主从同步事件有3种形式:statement、row、mixed。
+            在master机器上，主从同步事件会被写到特殊的log文件中(binary-log);
 
-        statement：会将对数据库操作的sql语句写入到binlog中。
-        row：会将每一条数据的变化写入到binlog中。
-        mixed：statement与row的混合。Mysql决定什么时候写statement格式的，什么时候写row格式的binlog。
+            主从同步事件有3种形式:statement、row、mixed。
+
+            * statement：会将对数据库操作的sql语句写入到binlog中。
+            * row：会将每一条数据的变化写入到binlog中。
+            * mixed：statement与row的混合。Mysql决定什么时候写statement格式的，什么时候写row格式的binlog。
 
         2. 在master机器上的操作
-        当master上的数据发生改变的时候，该事件(insert、update、delete)变化会按照顺序写入到binlog中。
 
-        binlog dump线程
+            当master上的数据发生改变的时候，该事件(insert、update、delete)变化会按照顺序写入到binlog中。
 
-        当slave连接到master的时候，master机器会为slave开启binlog dump线程。当master 的 binlog发生变化的时候，binlog dump线程会通知slave，并将相应的binlog内容发送给slave。
+            binlog dump线程
+
+            当slave连接到master的时候，master机器会为slave开启binlog dump线程。当master 的 binlog发生变化的时候，binlog dump线程会通知slave，并将相应的binlog内容发送给slave。
 
         3. 在slave机器上的操作
-        当主从同步开启的时候，slave上会创建2个线程。
 
-        I/O线程。该线程连接到master机器，master机器上的binlog dump线程会将binlog的内容发送给该I/O线程。该I/O线程接收到binlog内容后，再将内容写入到本地的relay log。
-        SQL线程。该线程读取I/O线程写入的relay log。并且根据relay log的内容对slave数据库做相应的操作。
+            当主从同步开启的时候，slave上会创建2个线程。
+
+            I/O线程。该线程连接到master机器，master机器上的binlog dump线程会将binlog的内容发送给该I/O线程。该I/O线程接收到binlog内容后，再将内容写入到本地的relay log。
+            SQL线程。该线程读取I/O线程写入的relay log。并且根据relay log的内容对slave数据库做相应的操作。
         
         4. 如何在master、slave上查看上述的线程？
-        使用SHOW PROCESSLIST命令可以查看。
 
-        如图，在master机器上查看binlog dump线程。
+            使用SHOW PROCESSLIST命令可以查看。
 
+            如图，在master机器上查看binlog dump线程。
 
+            ![](architect/architect-db-master-slave-dump.png)
 
-        如图，在slave机器上查看I/O、SQL线程。
+            如图，在slave机器上查看I/O、SQL线程。
 
-
+            ![](architect/architect-db-master-slave-io.png)
 
     4. 讲了这么多，一图以蔽之
 
-
+        ![](architect/architect-db-master-slave-step.png)
 
     5. 关于实战
 
-5. select 1. from table t where size > 10 group by size order by size的sql语句执行顺序？
+5. select * from table t where size > 10 group by size order by size的sql语句执行顺序？
 
-6. 如何优化数据库性能 索引、分库分表、批量操作、分页算法、升级硬盘SSD、业务优化、主从部署. 
+    Mysql的执行顺序是如下
 
-7. SQL什么情况下不会使用索引 不包含，不等于，函数. 
+    1. FORM: 对FROM的左边的表和右边的表计算笛卡尔积。产生虚表VT1
+    2. ON: 对虚表VT1进行ON筛选，只有那些符合<join-condition>的行才会被记录在虚表VT2中。
+    3. JOIN： 如果指定了OUTER JOIN（比如left join、 right join），那么保留表中未匹配的行就会作为外部行添加到虚拟表VT2中，产生虚拟表VT3, rug from子句
+    4. 含两个以上的表的话，那么就会对上一个join连接产生的结果VT3和下一个表重复执行步骤1~3这三个步骤，一直到处理完所有的表为止。
+    5. WHERE： 对虚拟表VT3进行WHERE条件过滤。只有符合<where-condition>的记录才会被插入到虚拟表VT4中。
+    6. GROUP BY: 根据group by子句中的列，对VT4中的记录进行分组操作，产生VT5.
+    7. CUBE | ROLLUP: 对表VT5进行cube或者rollup操作，产生表VT6.
+    8. HAVING： 对虚拟表VT6应用having过滤，只有符合<having-condition>的记录才会被 插入到虚拟表VT7中。
+    9. SELECT： 执行select操作，选择指定的列，插入到虚拟表VT8中。
+    10. DISTINCT： 对VT8中的记录进行去重。产生虚拟表VT9.
+    11. ORDER BY: 将虚拟表VT9中的记录按照<order_by_list>进行排序操作，产生虚拟表VT10.
+    12. LIMIT：取出指定行的记录，产生虚拟表VT11, 并将结果返回。
+
+    因此执行顺序将是 from table t > where size > 10 > group by size > order by size
+
+    原文：https://www.jianshu.com/p/7331223c5a58
+
+6. 如何优化数据库性能（索引、分库分表、批量操作、分页算法、升级硬盘SSD、业务优化、主从部署）。
+
+    
+
+
+
+7. SQL什么情况下不会使用索引（不包含，不等于，函数）. 
+    1. 建立组合索引，但查询谓词并未使用组合索引的第一列，此处有一个INDEX SKIP SCAN概念。
+    2. 在包含有null值的table列上建立索引，当时使用select count(*) from table时不会使用索引。
+    3. 在索引列上使用函数时不会使用索引，如果一定要使用索引只能建立函数索引。
+    4. 当被索引的列进行隐式的类型转换时不会使用索引。如:d select * from t where indexed_column = 5，而indexed_column列建立索引但类型是字符型，这时Oracle会产生
+    隐式的类型转换，转换后的语句类似于select * from t where to_number(indexed_column) = 5，此时不走索引的情况类似于case3。日期转换也有类似问题，如:
+    select * from t where trunc(date_col) = trunc(sysdate)其中date_col为索引列，这样写不会走索引，可改写成select * from t where date_col >= trunc(sysdate)
+    and date_col < trunc(sysdate+1)，此查询会走索引。
+    5. 并不是所有情况使用索引都会加快查询速度，full scan table 有时会更快，尤其是当查询的数据量占整个表的比重较大时，因为full scan table采用的是多块读，
+    当Oracle优化器没有选择使用索引时不要立即强制使用，要充分证明使用索引确实查询更快时再使用强制索引。
+    6. <>
+    7. like’%dd’百分号在前
+    8. not in ,not exist.
+
+    原文：https://www.jianshu.com/p/7331223c5a58
+
 
 8. 一般在什么字段上建索引 过滤数据最多的字段. 
 
+    1. 表的主键、外键必须有索引；
+    2. 数据量超过300的表应该有索引；
+    3. 经常与其他表进行连接的表，在连接字段上应该建立索引；
+    4. 经常出现在Where子句中的字段，特别是大表的字段，应该建立索引；
+    5. 索引应该建在选择性高的字段上；
+    6. 索引应该建在小字段上，对于大的文本字段甚至超长字段，不要建索引；
+    7. 复合索引的建立需要进行仔细分析；尽量考虑用单字段索引代替
+
+    链接：https://www.jianshu.com/p/7331223c5a58
+
 9. 如何从一张表中查出name字段不包含“XYZ”的所有行？
 
-10. MySQL，B+索引实现，行锁实现，SQL优化
+    ```sql
+    select * from t where t.name NOT LIKE ‘%XYZ%'
+    ```
 
+10. MySQL，B+索引实现，行锁实现，SQL优化
+    
 11. Redis，RDB和AOF，如何做高可用、集群
 
 12. 如何解决高并发减库存问题
@@ -200,5 +259,16 @@
 13. mysql存储引擎中索引的实现机制；
 
 14. 数据库事务的几种粒度；
+
+    事务（Transaction）及其ACID属性
+
+    事务是由一组SQL语句组成的逻辑处理单元，事务具有以下4个属性，通常简称为事务的ACID属性。
+
+    * 原子性（Atomicity）：事务是一个原子操作单元，其对数据的修改，要么全都执行，要么全都不执行。
+    * 一致性（Consistent）：在事务开始和完成时，数据都必须保持一致状态。这意味着所有相关的数据规则都必须应用于事务的修改，以保持数据的完整性；事务结束时，所有的内部数据结构（如B树索引或双向链表）也都必须是正确的。
+    * 隔离性（Isolation）：数据库系统提供一定的隔离机制，保证事务在不受外部并发操作影响的“独立”环境执行。这意味着事务处理过程中的中间状态对外部是不可见的，反之亦然。
+    * 持久性（Durable）：事务完成之后，它对于数据的修改是永久性的，即使出现系统故障也能够保持。
+
+    链接：https://www.jianshu.com/p/7331223c5a58
 
 15. 行锁，表锁；乐观锁，悲观锁
