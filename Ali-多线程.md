@@ -100,7 +100,7 @@
 
     下面是一幅关于四个线程(A,B,C和D)之间锁占有和请求的关系图。像这样的数据结构就可以被用来检测死锁。
 
-    ![](architect/architect-thread-lock.png)
+    ![](ali/ali-thread-lock.png)
 
     那么当检测出死锁时，这些线程该做些什么呢？
 
@@ -202,7 +202,7 @@
 
     然后计算索引。索引计算完之后执行e.next=newTable[i],此时e.next=key(7)。继续往下走，newTable[i]=e,此时newTable[i]=key(3)，再往下，e=next,此时e指向了key(7),本次循环结束。从线程二重组链表结束，到线程1第一轮循环结束的变化图如下:
 
-    ![](architect/architect-thread-hashmap.jpg)
+    ![](ali/ali-thread-hashmap.jpg)
 
 
     一切看起来都还没有什么问题。然后新一轮循环开始
@@ -546,7 +546,7 @@
     #### 数据结构
     Java 7中的ConcurrentHashMap的底层数据结构仍然是数组和链表。与HashMap不同的是，ConcurrentHashMap最外层不是一个大的数组，而是一个Segment的数组。每个Segment包含一个与HashMap数据结构差不多的链表数组。整体数据结构如下图所示。
 
-    ![](architect/architect-thread-concurrenthashmap-jdk7.png)
+    ![](ali/ali-thread-concurrenthashmap-jdk7.png)
 
     #### 寻址方式
     在读写某个Key时，先取该Key的哈希值。并将哈希值的高N位对Segment个数取模从而得到该Key应该属于哪个Segment，接着如同操作HashMap一样操作这个Segment。为了保证不同的值均匀分布到不同的Segment，需要通过如下方法计算哈希值。
@@ -657,7 +657,7 @@
     
     Java 7为实现并行访问，引入了Segment这一结构，实现了分段锁，理论上最大并发度与Segment个数相等。Java 8为进一步提高并发性，摒弃了分段锁的方案，而是直接使用一个大的数组。同时为了提高哈希碰撞下的寻址性能，Java 8在链表长度超过一定阈值（8）时将链表（寻址时间复杂度为O(N)）转换为红黑树（寻址时间复杂度为O(long(N))）。其数据结构如下图所示
 
-    ![](architect/architect-thread-concurrenthashmap-jdk8.png)
+    ![](ali/ali-thread-concurrenthashmap-jdk8.png)
 
     JAVA 8 ConcurrentHashMap
     #### 寻址方式
@@ -1485,7 +1485,7 @@
     5. 死亡状态(Dead)：线程执行完了或者因异常退出了run()方法，该线程结束生命周期。
 
     线程变化的状态转换图如下：
-    ![](architect/architect-thread-state-transfer.png)
+    ![](ali/ali-thread-state-transfer.png)
 
     ```
     拿到对象的锁标记，即为获得了对该对象(临界区)的使用权限。即该线程获得了运行所需的资源，进入“就绪状态”，只需获得CPU，就可以运行。
@@ -1505,7 +1505,7 @@
         * suspend()和 resume()方法：两个方法配套使用，suspend()使得线程进入阻塞状态，并且不会自动恢复，必须其对应的resume()被调用，才能使得线程重新进入可执行状态。典型地，suspend()和 resume()被用在等待另一个线程产生的结果的情形：测试发现结果还没有产生后，让线程阻塞，另一个线程产生了结果后，调用resume()使其恢复。
         * wait()和notify()方法：当线程调用wait()方法后会进入等待队列（进入这个状态会释放所占有的所有资源，与阻塞状态不同），进入这个状态后，是不能自动唤醒的，必须依靠其他线程调用notify()或notifyAll()方法才能被唤醒（由于notify()只是唤醒一个线程，但我们由不能确定具体唤醒的是哪一个线程，也许我们需要唤醒的线程不能够被唤醒， 因此在实际使用时，一般都用notifyAll()方法，唤醒有所线程），线程被唤醒后会进入锁池，等待获取锁标记。 wait() 使得线程进入阻塞状态，它有两种形式：一种允许指定以ms为单位的时间作为参数，另一种没有参数。前者当对应的notify()被调用或超出指定时间时线程重新进入可执行状态即就绪状态，后者则必须对应的notify()被调用。 当调用wait()后，线程会释放掉它所占有的“锁标志”，从而使线程所在对象中的其它synchronized数据可被别的线程使用。wait()和notify()因为会对对象的“锁标志”进行操作，所以它们必须在synchronized函数或synchronized block中进行调用。 如果在non-synchronized函数或non-synchronizedblock中进行调用，虽然能编译通过，但在运行时会发生IllegalMonitorStateException的异常。
 
-    ![](architect/architect-thread-state-realize.png)
+    ![](ali/ali-thread-state-realize.png)
 
     #### 线程池ThreadPoolExecutor实现原理
 
@@ -1516,7 +1516,7 @@
     public interface ExecutorService extends Executor { ... }
     public interface Executor { ... }
     ```
-    ![](architect/architect-thread-threadpoolexecutor .png)
+    ![](ali/ali-thread-threadpoolexecutor .png)
 
     再看看ThreadPoolExecutor的构造方法了解一下这个类:
     ```java
@@ -1635,7 +1635,7 @@
     2. 线程池的线程数量不小于corePoolSize核心线程数量，或者开启核心线程失败，尝试将任务以非阻塞的方式添加到任务队列。
     3. 任务队列已满导致添加任务失败，开启新的非核心线程执行任务。
 
-    ![](architect/architect-thread-threadpoolexecutor-flow.png)
+    ![](ali/ali-thread-threadpoolexecutor-flow.png)
 
     回顾FixedThreadPool，因为它配置的corePoolSize与maximumPoolSize相等，所以不会执行到情况3，并且因为workQueue为默认的LinkedBlockingQueue，其长度为Integer.MAX_VALUE，几乎不可能出现任务无法被添加到workQueue的情况，所以FixedThreadPool的所有任务执行在核心线程中。
 
@@ -2011,6 +2011,6 @@
     4. 如果队列已满 && 正在运行的线程数 >= maximumPoolSize，线程池调用handler的reject方法拒绝本次提交。
 
     从worker线程自己的角度来看，当worker的task执行结束之后，循环从阻塞队列中取出任务执行。
-    ![](architect/architect-thread-threadpoolexecutor-execute.png)
+    ![](ali/ali-thread-threadpoolexecutor-execute.png)
 
     原文：https://blog.csdn.net/u010983881/article/details/79322499 

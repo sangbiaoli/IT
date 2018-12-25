@@ -34,7 +34,7 @@
 
             4）持续每次对越来越少的元素重复上面的步骤，直到没有任何一对数字需要比较。
 
-            ![](architect/architect-algorithm-bubble-sort.jpg)
+            ![](ali/ali-algorithm-bubble-sort.jpg)
 
             冒泡排序是稳定的。算法时间复杂度是O(n^2)。 
 
@@ -50,7 +50,7 @@
 
             3）重复第二步，直到所有元素均排序完毕。
 
-            ![](architect/architect-algorithm-selection-sort.jpg)
+            ![](ali/ali-algorithm-selection-sort.jpg)
 
             选择排序是不稳定的。算法复杂度是O(n^2)。        
 
@@ -64,7 +64,7 @@
 
             2）从头到尾依次扫描未排序序列，将扫描到的每个元素插入有序序列的适当位置。（如果待插入的元素与有序序列中的某个元素相等，则将待插入元素插入到相等元素的后面。）
 
-            ![](architect/architect-algorithm-insertion-sort.jpg)
+            ![](ali/ali-algorithm-insertion-sort.jpg)
 
             直接插入排序是稳定的。算法时间复杂度是O(n^2) 
 
@@ -84,7 +84,7 @@
 
             4） 重复步骤2，直到堆的尺寸为1
 
-            ![](architect/architect-algorithm-heap-sort.jpg)
+            ![](ali/ali-algorithm-heap-sort.jpg)
 
             堆排序是不稳定的。算法时间复杂度O(nlog2n)。 
 
@@ -104,7 +104,7 @@
 
             将另一序列剩下的所有元素直接复制到合并序列尾
 
-            ![](architect/architect-algorithm-merge-sort.jpg)
+            ![](ali/ali-algorithm-merge-sort.jpg)
 
             归并排序是稳定的。其时间复杂度无论是在最好情况下还是在最坏情况下均是O(nlog2n)。 
 
@@ -124,7 +124,7 @@
 
             递归的最底部情形，是数列的大小是零或一，也就是永远都已经被排序好了。虽然一直递归下去，但是这个算法总会退出，因为在每次的迭代（iteration）中，它至少会把一个元素摆到它最后的位置去。
             
-            ![](architect/architect-algorithm-quick-sort.jpg)
+            ![](ali/ali-algorithm-quick-sort.jpg)
 
             快速排序是不稳定的。最理想情况算法时间复杂度O(nlog2n)，最坏O(n ^2)。
 
@@ -148,7 +148,7 @@
 
             3）每趟排序，根据对应的增量ti，将待排序列分割成若干长度为m 的子序列，分别对各子表进行直接插入排序。仅增量因子为1 时，整个序列作为一个表来处理，表长度即为整个序列的长度。
 
-            ![](architect/architect-algorithm-shell-sort.jpg)
+            ![](ali/ali-algorithm-shell-sort.jpg)
 
         8. 基数排序
 
@@ -242,7 +242,7 @@
 
     而对于链表来说，他对内存空间的要求就不会有那么高，它并不需要一块连续的内存空间，只要内存空间充足，即使内存空间存在碎片，只要碎片的大小足够存储一个链表节点的数据，该碎片的空间都有可能被分配，链表通过指针或者引用的方式将一组零散的空间串联起来使用。所以如果一个链表需要100M的空间，但是如果内存空间充足，但是没有一个连续的空间大于100M，也不会影响链表的空间分配。
 
-    ![](architect/architect-algorithm-linked-list-structure.png)
+    ![](ali/ali-algorithm-linked-list-structure.png)
 
     对于链式存储结构，一般情况下我们遇到最多且最常用的大概有单向链表，双向链表，循环链表三种。
 
@@ -251,7 +251,7 @@
     #### 单向链表
     在链表结构中，每个节点仅存储本身需要存储的数据和下一个节点地址的这种链表结构，我们称为单链表结构，其示意图如下：
 
-    ![](architect/architect-algorithm-linked-list-one.png)
+    ![](ali/ali-algorithm-linked-list-one.png)
 
     如图所示，在单链表中的每个节点中，除了数据区域外，还有一个区域存储了当前节点的下一节点的地址，我们把这个记录下个结点地址的指针或引用叫作后继指针或引用Next。
 
@@ -261,9 +261,9 @@
 
     但是我们都知道，数组在进行数据的插入，删除操作时，为了保证内存数据的连续性，往往需要做大量的数据搬移工作，所以时间复杂度是O(n)。而在链表中插入或删除数据时，因为链表结构中的节点并不需要连续的存储空间，所以在链表中进行数据的插入和删除时并不需要搬移节点。对于链表的删除和插入操作，我们只需要调整相邻节点的后继指针即可，所以对应的时间复杂度是O(1)。
 
-    ![](architect/architect-algorithm-linked-list-insert.png)
+    ![](ali/ali-algorithm-linked-list-insert.png)
 
-    ![](architect/architect-algorithm-linked-list-delete.png)
+    ![](ali/ali-algorithm-linked-list-delete.png)
 
 
     和数组相比，链表如果需要访问第k个元素，就没有数组那么简单了。因为数组的内存数据是连续的，当我们需要访问第k个元素时，通过基地址（base_address）和数据类型大小就可以随机访问到数据所在的内存地址。
@@ -277,14 +277,14 @@
     #### 循环链表
     说完单链表，我们继续来看一下循环链表。循环链表是一种特殊的单链表，特殊之处在于，我们在单链表中，尾节点的后继指针或者引用不是指向一个具体的节点，而是指向一个空地址NULL，表示这就是最后一个节点。而将单链表的尾节点从指向空地址NULL调整为指向头结点Head，就形成了循环链表。
 
-    ![](architect/architect-algorithm-linked-list-one-round.png)
+    ![](ali/ali-algorithm-linked-list-one-round.png)
 
     和单链表相比，循环链表的优点是从链尾到链头比较方便。当要处理的数据具有环型结构特点时，就特别适合采用循环链表。比如著名的约瑟夫问题，尽管用单链表也可以实现，但是用循环链表实现的话，代码就会简洁很多。
 
     #### 双向链表
     单向链表是单向的，只有一个后继指针或者引用Next指向后面的节点，而双向链表，指的是一个链表结构，它支持两个方向，每个节点不止只有一个后继指针或者引用Next指向后继节点，还有一个前驱指针或者引用Prev指向前面的节点。
 
-    ![](architect/architect-algorithm-linked-list-double.png)
+    ![](ali/ali-algorithm-linked-list-double.png)
 
     从图中可以得知，双向链表需要额外的空间来存储后继节点和前驱节点的地址，所以，存储同样多的数据，双向链表要比单向链表需要的存储空间要多。虽然两个指针或者引用比较浪费存储空间，但可以支持双向遍历，这样也带来了双向链表操作的灵活性。
 
@@ -304,7 +304,7 @@
     #### 双向循环链表
     上面我们说了单向链表、循环链表、双向链表，我们将循环链表和双向链表整合在一起，就形成了双向循环链表。
 
-    ![](architect/architect-algorithm-linked-list-double-round.png)
+    ![](ali/ali-algorithm-linked-list-double-round.png)
 
     通过前面内容的探讨，我们应该已经知道，数组和链表是两种截然不同的内存组织方式。正是因为内存存储的区别，它们插入、删除、随机访问操作的时间复杂度正好相反。
 
@@ -393,7 +393,7 @@
     ```
     创建好的二叉树图形如下:
 
-    ![](architect/architect-algorithm-tree.png)
+    ![](ali/ali-algorithm-tree.png)
 
     当运行上面的程序后结果如下：
     ```

@@ -138,7 +138,7 @@
 
 3. 常用的集合类有哪些？比如List如何排序？ 
 
-    ![](architect/architect-java-collection.png)
+    ![](ali/ali-java-collection.png)
 
     #### Java中常用的集合类
 
@@ -309,7 +309,7 @@
     #### Hash
     先用一张图看下什么是Hash
 
-    ![](architect/architect-java-hashCode.jpg)
+    ![](ali/ali-java-hashCode.jpg)
 
     Hash是散列的意思，就是把任意长度的输入，通过散列算法变换成固定长度的输出，该输出就是散列值。关于散列值，有以下几个关键结论：
     1. 如果散列表中存在和散列原始输入K相等的记录，那么K必定在f(K)的存储位置上
@@ -409,7 +409,7 @@
 
     正如你所看到的，只有当有新的数据要读取时，程序才会进行，并且每一步你都知道数据是什么。 一旦正在执行的线程通过读取代码中的某段数据，线程就不会在数据中倒退（大部分不是）。 这个原理在这个图中也有说明：
 
-    ![](architect/architect-java-nio-thread.png)
+    ![](ali/ali-java-nio-thread.png)
 
     NIO的实现看起来不同。 这是一个简单的例子：
     ```java
@@ -436,18 +436,18 @@
     如果缓冲区已满，可以进行处理。 如果它没有满，那么你可能能够部分处理任何数据，如果这在你的特定情况下是有意义的。 在许多情况下，它不是。
     图中显示了is-data-in-buffer-ready循环：
 
-    ![](architect/architect-java-nio-buffer-ready.png)
+    ![](ali/ali-java-nio-buffer-ready.png)
 
     #### 概要
     NIO允许您仅使用一个（或几个）线程来管理多个通道（网络连接或文件），但代价是解析数据可能比从阻塞流读取数据时要复杂一些。
 
     如果你需要管理数以千计的同时打开的连接，每一个只发送一点点的数据，例如聊天服务器，在NIO中实现服务器可能是一个优势。 同样，如果你需要保持与其他计算机的大量开放连接，例如 在P2P网络中，使用单个线程来管理所有出站连接可能是一个优势。 这一个线程，多个连接设计如下图所示：
 
-    ![](architect/architect-java-nio-thread-conn.png)
+    ![](ali/ali-java-nio-thread-conn.png)
 
     如果您的连接带宽非常高，一次发送大量数据，那么传统的IO服务器实现可能是最合适的。 该图说明了一个经典的IO服务器设计：
 
-    ![](architect/architect-java-nio-thread-conn-thread.png)
+    ![](ali/ali-java-nio-thread-conn-thread.png)
 
     原文：https://www.jianshu.com/p/18f9d350b5c9?mType=Group
 
@@ -462,11 +462,11 @@
 
         HashMap内部通过维护一个Entry<K, V>数组（变量为table），来实现其基本功能，而Entry<K, V>是HashMap的内部类，其主要作用便是存储键值对，其数据结构大致如下图所示。
 
-        ![](architect/architect-java-hashMap-structure.jpg)
+        ![](ali/ali-java-hashMap-structure.jpg)
 
         从Entry的数据结构可以看出，多个Entry是可以形成一个单向链表的，HashMap中维护的Entry<K, V>数组（之后简称为Entry数组，或table，容易区分）其实就是存储的一系列Entry<K, V>链表的表头。那么HashMap中存储数据table数组的数据结构，大致可以如下图所示（假设只有部分数据）。
 
-        ![](architect/architect-java-hashMap-store.jpg)
+        ![](ali/ali-java-hashMap-store.jpg)
 
         注：Entry数组的默认长度为16，负载因子为0.75。
 
@@ -549,10 +549,10 @@
     4. 线程不安全
 
         在多线程环境下，假设有容器map，其存储的情况如下图所示（淡蓝色为已有数据）。
-        ![](architect/architect-java-hashMap-data.jpg)
+        ![](ali/ali-java-hashMap-data.jpg)
 
         此时的map已经达到了扩容阈值12（16 * 0.75 = 12），而此时线程A与线程B同时对map容器进行插入操作，那么都需要扩容。此时可能出现的情况如下：线程A与线程B都进行了扩容，此时便有两个新的table，那么再赋值给原先的table变量时，便会出现其中一个newTable会被覆盖，假如线程B扩容的newTable覆盖了线程A扩容的newTable，并且是在A已经执行了插入操作之后，那么就会出现线程A的插入失效问题，也即是如下图中的两个table只能有一个会最后存在，而其中一个插入的值会被舍弃的问题。
-        ![](architect/architect-java-hashMap-expand.jpg)
+        ![](ali/ali-java-hashMap-expand.jpg)
 
         这便是HashMap的线程不安全性，当然这只是其中的一点。而要消除这种隐患，则可以加锁或使用HashTable和ConcurrentHashMap这样的线程安全类，但是HashTable不被建议使用，推荐使用ConcurrentHashMap容器。
 
@@ -562,7 +562,7 @@
     #### 一、JVM结构
     根据《java虚拟机规范》规定，JVM的基本结构一般如下图所示：
 
-    ![](architect/architect-java-jvm-structure1.jpg)    ![](architect/architect-java-jvm-structure2.jpg)
+    ![](ali/ali-java-jvm-structure1.jpg)    ![](ali/ali-java-jvm-structure2.jpg)
 
 
     从左图可知，JVM主要包括四个部分：
@@ -573,7 +573,7 @@
 
     3. 内存区（也叫运行时数据区）：是在JVM运行的时候操作所分配的内存区。运行时内存区主要可以划分为5个区域，如图：
 
-        ![](architect/architect-java-jvm-mem.jpg)
+        ![](ali/ali-java-jvm-mem.jpg)
 
         * 方法区(Method Area)：用于存储类结构信息的地方，包括常量池、静态变量、构造函数等。虽然JVM规范把方法区描述为堆的一个逻辑部分， 但它却有个别名non-heap（非堆），所以大家不要搞混淆了。方法区还包含一个运行时常量池。
         * java堆(Heap)：存储java实例或者对象的地方。这块是GC的主要区域（后面解释）。从存储的内容我们可以很容易知道，方法区和堆是被所有java线程共享的。
@@ -610,19 +610,19 @@
 
     不足：效率低；标记清除之后会产生大量碎片。效果图如下：
 
-    ![](architect/architect-java-jvm-mark-sweep.png)
+    ![](ali/ali-java-jvm-mark-sweep.png)
 
     2. 复制（Copying）
 
     此算法把内存空间划为两个相等的区域，每次只使用其中一个区域。垃圾回收时，遍历当前使用区域，把正在使用中的对象复制到另外一个区域中。此算法每次只处理正在使用中的对象，因此复制成本比较小，同时复制过去以后还能进行相应的内存整理，不会出现“碎片”问题。当然，此算法的缺点也是很明显的，就是需要两倍内存空间。效果图如下：
 
-    ![](architect/architect-java-jvm-copy.png)
+    ![](ali/ali-java-jvm-copy.png)
 
     3. 标记-整理（Mark-Compact）
 
     此算法结合了“标记-清除”和“复制”两个算法的优点。也是分两阶段，第一阶段从根节点开始标记所有被引用对象，第二阶段遍历整个堆，把清除未标记对象并且把存活对象“压缩”到堆的其中一块，按顺序排放。此算法避免了“标记-清除”的碎片问题，同时也避免了“复制”算法的空间问题。效果图如下：
 
-    ![](architect/architect-java-jvm-mark-compact.png)
+    ![](ali/ali-java-jvm-mark-compact.png)
 
     （1,2,3 图文摘自 http://pengjiaheng.iteye.com/blog/520228，感谢原作者。）
 
@@ -637,7 +637,7 @@
     “假设你是一个普通的 Java 对象，你出生在 Eden 区，在 Eden 区有许多和你差不多的小兄弟、小姐妹，可以把 Eden 区当成幼儿园，在这个幼儿园里大家玩了很长时间。Eden 区不能无休止地放你们在里面，所以当年纪稍大，你就要被送到学校去上学，这里假设从小学到高中都称为 Survivor 区。开始的时候你在 Survivor 区里面划分出来的的“From”区，读到高年级了，就进了 Survivor 区的“To”区，中间由于学习成绩不稳定，还经常来回折腾。直到你 18 岁的时候，高中毕业了，该去社会上闯闯了。于是你就去了年老代，年老代里面人也很多。在年老代里，你生活了 20 年 (每次 GC 加一岁)，最后寿终正寝，被 GC 回收。有一点没有提，你在年老代遇到了一个同学，他的名字叫爱德华 (慕光之城里的帅哥吸血鬼)，他以及他的家族永远不会死，那么他们就生活在永生代。”
 
     具体区域可以通过VisualVM中的VisaulGC插件查看，如图（openjdk 1.7）：
-    ![](architect/architect-java-jvm-visualvm.png)
+    ![](ali/ali-java-jvm-visualvm.png)
 
     年轻代：是所有新对象产生的地方。年轻代被分为3个部分——Enden区和两个Survivor区（From和to）当Eden区被对象填满时，就会执行Minor GC。并把所有存活下来的对象转移到其中一个survivor区（假设为from区）。Minor GC同样会检查存活下来的对象，并把它们转移到另一个survivor区（假设为to区）。这样在一段时间内，总会有一个空的survivor区。经过多次GC周期后，仍然存活下来的对象会被转移到年老代内存空间。通常这是在年轻代有资格提升到年老代前通过设定年龄阈值来完成的。需要注意，Survivor的两个区是对称的，没先后关系，from和to是相对的。
 
@@ -646,7 +646,7 @@
     持久代：用于存放静态文件，比如java类、方法等。持久代对垃圾回收没有显著的影响。 
 
     分代回收的效果图如下：
-    ![](architect/architect-java-jvm-persist.png)
+    ![](ali/ali-java-jvm-persist.png)
 
     我这里之所以最后讲分代，是因为分代里涉及了前面几种算法。年轻代：涉及了复制算法；年老代：涉及了“标记-整理（Mark-Sweep）”的算法。
 
@@ -668,7 +668,7 @@
 
     #### select实现
     select的调用过程如下所示：
-    ![](architect/architect-java-io-select.png)
+    ![](ali/ali-java-io-select.png)
 
     1. 使用copy_from_user从用户空间拷贝fd_set到内核空间
     2. 注册回调函数__pollwait
@@ -910,7 +910,7 @@
 
     #### Tomcat 与 Servlet 是如何工作的：
 
-    ![](architect/architect-java-servlet.jpg)
+    ![](ali/ali-java-servlet.jpg)
 
     步骤：
     1. Web Client 向Servlet容器（Tomcat）发出Http请求

@@ -130,7 +130,7 @@
 
         如下图：
 
-        ![](architect/architect-db-master-slave-structure.png)
+        ![](ali/ali-db-master-slave-structure.png)
 
         不管是delete、update、insert，还是创建函数、存储过程，所有的操作都在master上。当master有操作的时候,slave会快速的接收到这些操作，从而做同步。
 
@@ -176,15 +176,15 @@
 
             如图，在master机器上查看binlog dump线程。
 
-            ![](architect/architect-db-master-slave-dump.png)
+            ![](ali/ali-db-master-slave-dump.png)
 
             如图，在slave机器上查看I/O、SQL线程。
 
-            ![](architect/architect-db-master-slave-io.png)
+            ![](ali/ali-db-master-slave-io.png)
 
     4. 讲了这么多，一图以蔽之
 
-        ![](architect/architect-db-master-slave-step.png)
+        ![](ali/ali-db-master-slave-step.png)
 
     5. 关于实战
 

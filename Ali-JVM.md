@@ -6,7 +6,7 @@
 
     下图是Java堆内存默认划分示意图：
 
-    ![](architect/architect-jvm-heap.png)
+    ![](ali/ali-jvm-heap.png)
 
     绝大部分 Java 程序员应该都见过 "java.lang.OutOfMemoryError: PermGen space" 这个异常。这里的 "PermGen space"其实指的就是方法区。不过方法区和“PermGen space”又有着本质的区别。前者是 JVM 的规范，而后者则是 JVM 规范的一种实现，并且只有 HotSpot 才有 “PermGen space”，而对于其他类型的虚拟机，如 JRockit（Oracle）、J9（IBM） 并没有“PermGen space”。由于方法区主要存储类的相关信息，所以对于动态生成类的情况比较容易出现永久代的内存溢出。最典型的场景就是，在 jsp 页面比较多的情况，容易出现永久代内存溢出。
 
@@ -151,7 +151,7 @@
 5. Java程序是否会内存溢出，内存泄露情况发生？举几个例子。
 
     如下是整篇文章的结构，所需阅读时间大约20min
-    ![](architect/architect-jvm-leak-dir.webp)
+    ![](ali/ali-jvm-leak-dir.webp)
 
     Java当中的内存泄漏
 
@@ -163,7 +163,7 @@
     在C++中，内存泄漏的范围更大一些。有些对象被分配了内存空间，然后却不可达，由于C++中没有GC（Garbage Collection垃圾回收），这些内存将永远收不回来。在Java中，这些不可达的对象都由GC负责回收，因此程序员不需要考虑这部分的内存泄露。
     通过分析，我们得知，对于C++，程序员需要自己管理边和顶点，而对于Java程序员只需要管理边就可以了(不需要管理顶点的释放)。通过这种方式，Java提高了编程的效率。
 
-    ![](architect/architect-jvm-leak-reach.webp)
+    ![](ali/ali-jvm-leak-reach.webp)
 
     C++与Java当中的内存泄漏
 
@@ -186,7 +186,7 @@
     ```
     要想理解这个定义，我们需要先了解一下对象在内存中的状态。下面的这张图就解释了什么是无用对象以及什么是未被引用对象。
 
-    ![](architect/architect-jvm-leak-reference.webp)
+    ![](ali/ali-jvm-leak-reference.webp)
 
     上面图中可以看出，里面有被引用对象和未被引用对象。未被引用对象会被垃圾回收器回收，而被引用的对象却不会。未被引用的对象当然是不再被使用的对象，因为没有对象再引用它。然而无用对象却不全是未被引用对象。其中还有被引用的。就是这种情况导致了内存泄漏。
 
@@ -205,7 +205,7 @@
 
             B对象也可能会持有许多其他的对象，那这些对象同样也不会被垃圾回收器回收。所有这些没在使用的对象将持续的消耗之前分配的内存空间。
 
-            ![](architect/architect-jvm-leak-obj-life.webp)
+            ![](ali/ali-jvm-leak-obj-life.webp)
 
 
             具体主要有如下几大类：
@@ -326,7 +326,7 @@
             }
         }
         ```
-        ![](architect/architect-jvm-leak-vector.webp)
+        ![](ali/ali-jvm-leak-vector.webp)
 
     4. 如何防止内存泄漏的发生？
 
@@ -400,7 +400,7 @@
 
     #### 二、JVM内存区域模型
     
-    ![](architect/architect-java-jvm-structure.jpg)
+    ![](ali/ali-java-jvm-structure.jpg)
 
     1. 方法区 
         

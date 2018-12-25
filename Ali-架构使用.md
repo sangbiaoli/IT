@@ -37,7 +37,7 @@
 
         转换图：
 
-        ![](architect/architect-framework-hibernate-trans.png)
+        ![](ali/ali-framework-hibernate-trans.png)
 
         瞬时对象：
 
@@ -88,7 +88,7 @@
     实际上，ApplicationContext除了向BeanFactory那样维护容器外，还提供了更加丰富的框架功能，如Bean的消息，事件处理机制等。
 
     在这里一用仓颉的一幅图说明流程： 转载自 https://www.cnblogs.com/xrq730/p/6363055.html
-    ![](architect/architect-framework-spring-bean.png)
+    ![](ali/ali-framework-spring-bean.png)
 
     以下是自己测试时打印的日志信息，可以看下加载顺序：
     ```java
@@ -205,17 +205,17 @@
 
     #### Struts
     struts的架构图
-    ![](architect/architect-framework-struts.png)
+    ![](ali/ali-framework-struts.png)
 
     1. 提交请求
 
         客户端通过HttpServletRequest向servlet容器（即tomcat）提交一个请求。
 
         请求经过一系列的过滤器，例如图中的ActionContextCleanUp和Other filter(SlterMesh,etc)等，最后被struts的核心过滤器FilterDispatcher控制到。
-        ![](architect/architect-framework-struts-2.1.3.png)
+        ![](ali/ali-framework-struts-2.1.3.png)
 
         注：核心控制器2.1.3版本之后，struts的filterDispatcher核心控制器变成了StrutsPrepareAndExecuteFilte，如图：
-        ![](architect/architect-framework-struts-2.1.4.png)
+        ![](ali/ali-framework-struts-2.1.4.png)
 
         被核心控制器控制到之后才会访问Actionmapper来决定是否调用某个action（即用户是否要请求某个action）。如果是其他资源请求例如jsp页面，不会用到action。
 
@@ -230,7 +230,7 @@
     3. 创建ActionInvocation的实例
 
         如果在struts.xml找到需要调用的action, ActionProxy会创建一个ActionInvocation的实例。
-        ![](architect/architect-framework-struts-actionInvocation.png)
+        ![](ali/ali-framework-struts-actionInvocation.png)
 
     4. 调用action前的拦截器
 
@@ -248,7 +248,7 @@
 
         然后返回一个Result(业务方法对应String类型的返回值，即是字符串，例如SUCCESS，INPUT，ERROR，NONE，LOGIN和用户自己在struts对应定义result标签name属性的值)
 
-        ![](architect/architect-framework-struts-interceptor.png)
+        ![](ali/ali-framework-struts-interceptor.png)
 
     6. 匹配result
 
@@ -256,21 +256,21 @@
 
         一般来说返回一个jsp的页面，或者调用另外某一个action。
 
-        ![](architect/architect-framework-struts-result.png)
+        ![](ali/ali-framework-struts-result.png)
     7. 反向执行拦截器
 
         当返回视图之后并没有真正响应用户，还需要把执行过的拦截器倒过来反向执行一遍。
-        ![](architect/architect-framework-struts-interceptor-reverse.png)
+        ![](ali/ali-framework-struts-interceptor-reverse.png)
     8. 响应客户端
 
         当这些拦截器被反向执行之后，通过HttpServletResponse响应客户端的请求。
-        ![](architect/architect-framework-struts-response.png)
+        ![](ali/ali-framework-struts-response.png)
 
     原文：http://www.cnblogs.com/zzfweb/archive/2016/05/23/5521217.html
 
     #### SpringMVC
     流程分析：
-    ![](architect/architect-framework-springmvc.png)
+    ![](ali/ali-framework-springmvc.png)
     1. 用户发送请求至前端控制器DispatcherServlet
     2. DispatcherServlet收到请求调用HandlerMapping处理器映射器。
     3. 处理器映射器根据请求url找到具体的处理器，生成处理器对象及处理器拦截器(如果有则生成)一并返回DispatcherServlet。
@@ -504,7 +504,7 @@
 9. struts工作流程
 
     Struts2框架处理一个用户请求大致可分为如下几个步骤：
-    ![](architect/architect-framework-struts-work.png)
+    ![](ali/ali-framework-struts-work.png)
 
     1. 用户发出一个HttpServletRequest请求。
 
@@ -544,7 +544,7 @@
 
 11. Spring 如何实现数据库事务？
 
-    ![](architect/architect-framework-spring-transation.png)
+    ![](ali/ali-framework-spring-transation.png)
     #### 一、事务的基本原理
     Spring事务 的本质其实就是数据库对事务的支持，没有数据库的事务支持，spring是无法提供事务功能的。对于纯JDBC操作数据库，想要用到事务，可以按照以下步骤进行：
 
