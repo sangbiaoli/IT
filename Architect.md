@@ -247,37 +247,140 @@
         * CountDownLatch
         * Semphore
     9. 并发集合
-        * 
-        * 
-        * 
-        *
+        * ConcurrentHashMap
+        * ConcurrentLinkedQueue
     10. 原子操作
-        * 
-        * 
-        * 
-        *
+        * 基本类型
+            * AtomicBoolean
+            * AtomitInteger
+            * AtomicLong
+        * 数组
+            * AtomicIntegerArray
+            * AtomicLongArray
+            * AtomicReferenceArray
+        * 引用类型
+            * AtomicReference 
+            * AtomicReferenceFiledUpdater
     11. 线程池
+        * Executor
+        * ThreadPoolExecutor
+        * Callable和Future
+        * ScheduledExecutorService
     12. 其他
-
+        * ThreadLocal
+        * Fork/Join
 5. 性能优化
     1. 理解性能优化
+        * 性能基准
+        * 性能优化到底是什么
+        * 衡量维度
     2. JVM调优篇
+        * 知其然，知其所以然
+        * 什么是JVM运行时数据区
+        * 什么是JVM内存模型JMM
+        * 各垃圾回收器使用场景（Throughput\CMS）
+        * 理解GC日志，从日志看端倪
+        * 实战MAT分析dump文件
     3. Tomcat调优篇
+        * How is works?探查Tomcat的运行机制及框架
+        * 分析Tomcat线程模型
+        * Tomcat系统参数认识及调优
+        * 基准测试
     4. MySQL调优篇
-
+        * 理解MySQL底层B+Tree机制
+        * SQL执行计划详解
+        * 索引优化详解
+        * SQL语句优化
 6. DevOps
     1. Maven
+        * 生成可执行jar、理解scope生成最精确的jar
+        * 解决类冲突、宝依赖、NoClassDefFoundError问题定位及解决
+        * 全面理解Maven的LifeCycle\Phase\Goal
+        * 架构师必备之Maven生成Archetype
+        * Maven流行插件实战、手写自己的插件
+        * Nexus使用、上传、配置
+        * 对比Gradle
     2. Jenkins
+        * 持续集成，一次build解决所有手动工作
     3. sonarqube
+        * 减少人为疏忽，静态代码检查，让你的代码更健壮
     4. git
+        * 什么是git以及git的工作原理
+        * git常用命令best practise(避坑教学)
+        * git冲突怎么引起的，如何解决
+        * 架构师职责：git flow规范团队git使用规程
+        * 团队案例分享（买不到带才是最贵的）
     5. 敏捷开发
-
+        * 敏捷的由来
+            * 传统模式的问题
+            * 当前行业面临的问题
+            * 微服务与敏捷
+        * 敏捷开发模式
+            * 敏捷组织架构
+            * 敏捷最佳实战
+                * TDD
+                * 绝对编程
+                * CI
+            * 敏捷与DevOps
+        * 敏捷开发实战
+            * 用户故事 
+            * 看板
+            * 每日站会
+            * 迭代冲刺
+            * 回顾会议
 7. 电商项目实战
     1. 用户认证系统(passport)
+        * 用户注册
+        * 用户登录
+            * SSO单点登录
+            * 第三方登录
+        * 用户权限控制
+            * UI页面拦截
+            * 业务方法拦截
     2. 搜索模块(大数据)
+        * 大数据存储
+            * 分布式环境配置
+            * Hadoop基本配置介绍
+        * 大数据检索
+            * ElasticSearch环境配置
+            * ElasticSearch的API使用
+        * 动静分离
     3. 商品管理系统(item)
+        * 店铺管理
+            * 创建店铺
+            * 店铺主页指定
+        * 商品管理
+            * 商品录入
+            * 商品预览
     4. 订单系统(order)
+        * 订单号统一生成规则
+        * 下单流程管理
+        * 库存管理
+        * 购物车
+            * 购物车管理
+            * 未登录状态下的购物车同步
     5. 支付系统(pay)
+        * 优惠券支付
+        * 积分支付
+        * 金融支付
+            * 微信支付
+            * 支付宝支付
+            * 银联支付
     6. 数据统计分析系统(anal)
+        * 用户行为分析
+            * 用户兴趣分析
+            * 登录异常分析
+        * 行业分析
+        * 区域分析
     7. 通知推送系统
+        * 融云推送
+            * 活动推送
+            * 交易信息推送
+            * 异常提醒
+        * 消息中间件
+            * 消息同步
+            * 消息处理
     8. 聊天系统(im)
+        * 用户群聊
+        * 点对点聊天
+        * 文件断点续传
