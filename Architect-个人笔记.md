@@ -23,9 +23,9 @@
                     * bean如何定义
                     * bean如何读取（加载），加载资源的方式（文件，类路径，url），解析资源得到bean定义
                     * 由bean的行为，bean之间的关系，bean的自动装配定义出bean工厂
-                    
+
                     bean工厂实现加载，加载解析得到bean
-                    
+
                 * BeanFactory
                     BeanFactory是顶级接口，其子类接口有
                     * ListableBeanFactory:可列表
@@ -52,10 +52,10 @@
                         DefaultListableBeanFactory  factory = new DefaultListableBeanFactory ();
                         XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
                         reader.loadBeanDefinitions(resource);
-                        ```                            
+                        ```
 
                     * ApplicationContext(高富帅级别)：除了基本容器功能，还实现新特性
-                        
+
                         * 支持信息源，可以实现国际化。（实现MessageResource接口）
                         * 访问资源。（实现ResourcePatternResolver接口）
                         * 支持应用事件。（实现ApplicationEventPublisher接口）
@@ -88,6 +88,9 @@
             * 基于SpringJDBC手写ORM架构
         * MVC
             * MVC原理介绍
+
+                ![](dia/SpringMVC.png)
+
             * 与IOC容器整合原理
             * HandlerMappering实现原理
             * HanlderAdapter实现原理
