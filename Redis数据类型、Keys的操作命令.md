@@ -18,11 +18,13 @@ ZSET（有序集合）|字符串成员（member）与浮点数分值（score）�
 
         <img src="redis/redis-string-structure.png" width="257"/>
     * 命令表格
+
         命令|行为
         --|--
         GET|获取存储在给定键中的值
         SET|设置存储在给定键中的值
         DEL|删除存储在给定键中的值（这个命令可以用于所有类型）
+
     * 命令举例
         ```
         set hello world
@@ -44,6 +46,7 @@ ZSET（有序集合）|字符串成员（member）与浮点数分值（score）�
         Redis列表可执行的操作和很多编程语言里面的列表操作非常相似
 
     * 命令表格
+
         命令|行为
         --|--
         LPUSH|将给定值推入列表的左端
@@ -73,6 +76,7 @@ ZSET（有序集合）|字符串成员（member）与浮点数分值（score）�
         <img src="redis/redis-set-structure.png" width="257"/>
 
     * 命令表格
+
         命令|行为
         --|--
         SADD|将给定元素添加到集合
@@ -102,6 +106,7 @@ ZSET（有序集合）|字符串成员（member）与浮点数分值（score）�
         <img src="redis/redis-hset-structure.png" width="257"/>
 
     * 命令表格
+
         命令|行为
         --|--
         HSET|在散列里面关联起给定的键值对
@@ -131,6 +136,7 @@ ZSET（有序集合）|字符串成员（member）与浮点数分值（score）�
         <img src="redis/redis-zset-structure.png" width="257"/>
 
     * 命令表格
+    
         命令|行为
         --|--
         ZADD|将一个带有给定分值的成员添加到有序集合里面
