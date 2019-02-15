@@ -119,62 +119,52 @@ I/O复用：
 　　非阻塞I/O并发伪代码：
 
     ```java
-    public class NioEchoServer
-    {
-        public void server(int port) throws IOException
-        {
+   public class NioEchoServer {
+        public void server(int port) throws IOException {
             ServerSocketChannel serverChannel = ServerSocketChannel.open();
             ServerSocket ss = serverChannel.socket();
             InetSocketAddress address = new InetSocketAddress(port);
             ss.bind(address);
-            serverChannel.configureBlocking(flase);
+            serverChannel.configureBlocking(false);
             Selector selector = Selector.open();
-            serverChannel.register(selector,SelectionKey.OP_ACCEPT);
-            while(true)
-            {
-                try{
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+            while (true) {
+                try {
                     selector.select();
-                }catch(IOException e)
-                {
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
 
                 Set readyKeys = selector.selectedKeys();
                 Iterator iterator = readyKeys.iterator();
-                while(iterator.hasNext())
-                {
+                while (iterator.hasNext()) {
                     SelectionKey key = (SelectionKey) iterator.next();
                     iterator.remove();
-                    try{
-                        if(key.isAcceptable())
-                        {
-                            ServerSocketChannel server = (ServerSocketChannel)key.channel();
+                    try {
+                        if (key.isAcceptable()) {
+                            ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             SocketChannel client = server.accept();
                             client.configureBlocking(false);
-                            client.register(selector,SelectionKey.OP_WRITE|
-                            SelectionKey.OP_READ,ByteBuffer.allocate(100));
+                            client.register(selector, SelectionKey.OP_WRITE | SelectionKey.OP_READ,
+                                    ByteBuffer.allocate(100));
                         }
-                        if(key.isReadable())
-                        {
+                        if (key.isReadable()) {
                             SocketChannel client = (SocketChannel) key.channel();
                             ByteBuffer output = (ByteBuffer) key.attachment();
                             client.read(output);
                         }
-                        if(key.isWritable())
-                        {
+                        if (key.isWritable()) {
                             SocketChannel client = (SocketChannel) key.channel();
                             ByteBuffer output = (ByteBuffer) key.attachment();
                             output.flip();
                             client.write(output);
                             output.compact();
                         }
-                    }catch(IOException e)
-                    {
+                    } catch (IOException e) {
                         key.cancel();
-                        try{
+                        try {
                             key.channel().close();
-                        }catch(IOException e)
-                        {
+                        } catch (IOException ex) {
                         }
                     }
                 }
