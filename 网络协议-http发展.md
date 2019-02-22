@@ -1,3 +1,6 @@
+
+
+
 #### 浏览器与服务器通信过程
 * TCP 连接： 浏览器与服务器三次握手，建立 TCP 连接
 * 客户端请求： 建立 TCP 连接后，客户端就会向服务器发送一个 HTTP 请求信息（比如请求 HTML 资源，我们暂且就把这个称为“ HTML 请求”）
@@ -17,6 +20,14 @@
 
     3. 建立连接（Initial connection）：HTTP 是基于 TCP 协议的，浏览器最快也要在第三次握手时才能捎带HTTP请求报文，达到真正的建立连接，但是这些连接无法复用会导致每次请求都经历三次握手和慢启动。三次握手在高延迟的场景下影响较明显，慢启动则对文件类大请求影响较大。
 
+#### http的发展历史
+
+版本	|产生时间	|内容	|发展现状
+--|--|--|--|--
+HTTP/0.9	|1991年	|不涉及数据包传输，规定客户端和服务器之间通信格式，只能GET请求	|没有作为正式的标准
+HTTP/1.0	|1996年	|传输内容格式不限制，增加PUT、PATCH、HEAD、 OPTIONS、DELETE命令	|正式作为标准
+HTTP/1.1	|1997年	|持久连接(长连接)、节约带宽、HOST域、管道机制、分块传输编码	|2015年前使用最广泛
+HTTP/2	|2015年	|多路复用、服务器推送、头信息压缩、二进制协议等	|逐渐覆盖市场
 
 #### HTTP1.0
 1996年5月，HTTP/1.0 版本发布，内容大大增加。
@@ -116,10 +127,10 @@ HTTP1.0最早在网页中使用是在1996年，那个时候只是使用一些较
 GET / HTTP/1.1
 Host:www/blahblahblahblah.com
 ```
-![](network/network-http-version-long-connection.png)
+![](network/network-http-dev-long-connection.png)
 
 区别用一张图来体现：
-![](network/network-http-version-diff.png)
+![](network/network-http-dev-diff.png)
 
 #### SPDY
 2009年，谷歌公开了自行研发的 SPDY 协议，主要解决 HTTP/1.1 效率不高的问题。
@@ -134,7 +145,7 @@ Host:www/blahblahblahblah.com
 3. **header压缩**。前面提到HTTP1.x的header很多时候都是重复多余的。选择合适的压缩算法可以减小包的大小和数量。
 4. **基于HTTPS的加密协议传输**，大大提高了传输数据的可靠性。
 5. **服务端推送（server push）**，采用了SPDY的网页，例如我的网页有一个sytle.css的请求，在客户端收到sytle.css数据的同时，服务端会将sytle.js的文件推送给客户端，当客户端再次尝试获取sytle.js时就可以直接从缓存中获取到，不用再发请求了。SPDY构成图：
-![](network/network-http-version-server-push.png)
+![](network/network-http-dev-server-push.png)
 
 SPDY位于HTTP之下，TCP和SSL之上，这样可以轻松兼容老版本的HTTP协议(将HTTP1.x的内容封装成一种新的frame格式)，同时可以使用已有的SSL功能。
 
@@ -150,7 +161,7 @@ HTTP2.0可以说是SPDY的升级版（其实原本也是基于SPDY设计的）�
 这是 Akamai 公司建立的一个官方的演示，用以说明 HTTP/2 相比于之前的 HTTP/1.1 在性能上的大幅度提升。 同时请求 379 张图片，从Load time 的对比可以看出 HTTP/2 在速度上的优势。
 
 https://http2.akamai.com/demo
-![](network/network-http-version-speed.png)
+![](network/network-http-dev-speed.png)
 
 
 ####　HTTP2.0与HTTP1.1的区别
@@ -159,7 +170,7 @@ https://http2.akamai.com/demo
 3. 使用报头压缩，HTTP/2降低了开销
 4. HTTP/2让服务器可以将响应主动“推送”到客户端缓存中
 #####　二进制分帧层
-![](network/network-http-version-binary-frame.png)
+![](network/network-http-dev-binary-frame.png)
 
 在应用层与传输层之间增加一个二进制分帧层，以此达到“在不改动 HTTP 的语义，HTTP 方法、状态码、URI 及首部字段的情况下，突破 HTTP1.1 的性能限制，改进传输性能，实现低延迟和高吞吐量。”
 
@@ -170,15 +181,15 @@ https://http2.akamai.com/demo
 * 流：已建立的连接上的双向字节流。
 * 消息：与逻辑消息对应的完整的一系列数据帧。
 * 帧：HTTP2.0 通信的最小单位，每个帧包含首部，至少也会标识出当前帧所属的流。
-![](network/network-http-version-inter-cut.png)
+![](network/network-http-dev-inter-cut.png)
 
 
 多路复用（Multiplexing）
-![](network/network-http-version-multiplex.png)
+![](network/network-http-dev-multiplex.png)
 
 对于 HTTP1.1，浏览器通常最多有链接的限制，即使开启多个链接，也需要付出不小的代价。而多路复用允许同时通过单一的 HTTP2.0 连接发起多重的“请求-响应”消息。
 
-![](network/network-http-version-v2-req-resp.png)
+![](network/network-http-dev-v2-req-resp.png)
 
 客户端和服务器可以把 HTTP 消息分解为互不依赖的帧，然后乱序发送，最后再在另一端把它们重新组合起来。注意，同一链接上有多个不同方向的数据流在传输。客户端可以一边乱序发送 stream，也可以一边接收者服务器的响应，而服务器那端同理。
 
@@ -208,7 +219,7 @@ HTTP 协议不带有状态，每次请求都必须附上所有信息。所以，
 HTTP/2 对这一点做了优化，引入了头信息压缩机制（header compression）。一方面，头信息使用gzip或compress压缩后再发送；另一方面，客户端和服务器同时维护一张头信息表，所有字段都会存入这个表，生成一个索引号，以后就不发送同样字段了，只发送索引号，这样就提高速度了。
 
 ##### 服务器推送（Server Push）：
-![](network/network-http-version-v2-server-push.png)
+![](network/network-http-dev-v2-server-push.png)
 
 
 HTTP/2 允许服务器未经请求，主动向客户端发送资源，这叫做服务器推送（server push）。
