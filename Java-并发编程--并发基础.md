@@ -187,6 +187,335 @@
             **当对一个共享变量执行操作时，我们可以使用循环CAS的方式来保证原子操作，但是对多个共享变量操作时，循环CAS就无法保证操作的原子性**，这个时候就可以用锁，或者有一个取巧的办法，就是把多个共享变量合并成一个共享变量来操作。比如有两个共享变量i＝2,j=a，合并一下ij=2a，然后用CAS来操作ij。从Java1.5开始JDK提供了AtomicReference类来保证引用对象之间的原子性，你可以把多个变量放在一个对象里来进行CAS操作。
 
 2. AbstractQueuedSynchronizer
+    
+    1. 队列同步器（AQS）
+
+        队列同步器AbstractQueuedSynchronizer（以下简称**同步器**），是用来构建锁或者其他同步组件的基础框架，它使用了一个int成员变量表示同步状态，通过内置的FIFO队列来完成资源获取线程的排队工作，并发包的作者（Doug Lea）期望它能够成为实现大部分同步需求的基础。
+
+    2. AQS的模板方法设计模式
+
+        AQS的设计是使用模板方法设计模式，它将**一些方法开放给子类进行重写，而同步器给同步组件所提供模板方法又会重新调用被子类所重写的方法**。举个例子，AQS中需要重写的方法tryAcquire：
+        ```java
+        protected boolean tryAcquire(int arg) {
+           throw new UnsupportedOperationException();
+        }
+        ```
+
+        ReentrantLock中NonfairSync（继承AQS）会重写该方法为：
+        ```java
+        protected final boolean tryAcquire(int acquires) {
+            return nonfairTryAcquire(acquires);
+        }
+        ```
+
+        而AQS中的模板方法acquire():
+        ```java
+        public final void acquire(int arg) {
+            if (!tryAcquire(arg) &&
+                acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+                selfInterrupt();
+        }
+        ```
+
+        会调用tryAcquire方法，而此时当继承AQS的NonfairSync调用模板方法acquire时就会调用已经被NonfairSync重写的tryAcquire方法。这就是使用AQS的方式，在弄懂这点后会在lock的实现理解有很大的提升。可以归纳总结为这么几点：
+
+        1. 同步组件（这里不仅仅指锁，还包括CountDownLatch等）的实现依赖于同步器AQS，在同步组件实现中，使用AQS的方式被推荐定义继承AQS的静态内存类；
+
+        2. AQS采用模板方法进行设计，AQS的protected修饰的方法需要由继承AQS的子类进行重写实现，当调用AQS的子类的方法时就会调用被重写的方法；
+
+        3. AQS负责同步状态的管理，线程的排队，等待和唤醒这些底层操作，而Lock等同步组件主要专注于实现同步语义；
+
+        4. 在重写AQS的方式时，使用AQS提供的getState(),setState(),compareAndSetState()方法进行修改同步状态
+
+        AQS**可重写**的方法如下图（摘自《java并发编程的艺术》一书）：
+
+        * **protected boolean tryAcquire(int arg)**：独占式获取同步状态，实现该方法需要查询当前状态并判断同步状态是否符合预期，然后在进行CAS设置同步状态
+       
+        * **protected boolean tryRelease(int arg)**：独占式释放同步状态，等待获取同步状态的线程将有机会获取同步状态
+        
+        * **protected boolean tryAcquireShared(int arg)**：共享式获取同步状态，返回大于等于0的值，表示获取成功，反之，获取失败
+        
+        * **protected boolean tryReleaseShared(int arg)**：共享式释放同步状态
+        
+        * **protected boolean isHeldExclusively()**：当前同步器是否在独占式下被线程占用，一般该方法表示是否被当前线程所独占
+
+        在实现同步组件时AQS提供的**模板方法**如下：
+
+        * **void acquire(int arg)**：独占式获取同步状态，如果当前线程获取同步状态成功，则由该方法返回，否则，将会进入同步队列等待，该方法将会调用重写的tryAcquire(int arg)方法
+        
+        * **void tryAcquireNanos(int arg,long nanos)**：在acquireInterruptibly(int arg)基础上增加了超时限制，如果当前线程在超时时间内没有获取同步状态，那么将返回false，如果获取到了返回true
+        
+        * **void acquireShared(int arg)**：共享式获取同步状态，如果当前线程获取同步状态，将会进入同步队列等待，与独占式获取的主要区别是在同一时刻可以有多个线程获取到同步状态
+        
+        * **void acquireSharedInterruptibly(int arg)**：与acquireShared(int arg)相同，该方法响应中断
+        
+        * **void tryAcquireSharedNanos(int arg,long nanos)**：在acquireSharedInterruptibly(int arg)基础上增加了超时限制
+
+        * **void release(int arg)**：独占式的释放同步状态，该方法会在释放同步状态之后，将同步队列中第一个节点包含的线程唤醒
+
+        * **void releaseShared(int arg)**：共享式的释放同步状态
+
+        * **Collection\<Thread\> getQueuedThreads**：获取等待在同步队列上的线程集合
+
+        AQS提供的模板方法可以分为3类：
+
+        * 独占式获取与释放同步状态；
+        * 共享式获取与释放同步状态；
+        * 查询同步队列中等待线程情况；
+        
+        同步组件通过AQS提供的模板方法实现自己的同步语义。
+
+    
+
+    3. 同步器的基本结构
+
+        当共享资源被某个线程占有，其他请求该资源的线程将会阻塞，从而进入同步队列。就数据结构而言，队列的实现方式无外乎两者一是通过数组的形式，另外一种则是链表的形式。AQS中的同步队列则是通过链式方式（一个FIFO双向队列）进行实现。同步队列中的节点（Node）用来保存"获取同步状态失败的线程"引用、等待状态以及前驱和后继节点。
+
+        同步器包含了两个节点类型的引用，一个指向头节点，而另一个指向尾节点。
+
+        ```java
+        public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchronizer  
+            implements java.io.Serializable {  
+            ......  
+            private transient volatile Node head;//头节点  
+            private transient volatile Node tail;//尾节点  
+            private volatile int state;//*同步状态*  
+            ......  
+            static final class Node {  
+                volatile int waitStatus;//等待状态  
+                volatile Node prev;//前驱  
+                volatile Node next;//后继  
+                volatile Thread thread;//线程引用  
+
+                
+                int CANCELLED =  1//节点从同步队列中取消
+                int SIGNAL    = -1//后继节点的线程处于等待状态，如果当前节点释放同步状态会通知后继节点，使得后继节点的线程能够运行；
+                int CONDITION = -2//当前节点进入等待队列中
+                int PROPAGATE = -3//表示下一次共享式同步状态获取将会无条件传播下去
+                int INITIAL = 0;//初始状态
+                ......  
+            }  
+            ......  
+        }   
+        ```
+
+        注：Node类型的prev、next属性以及AbstractQueuedSynchronizer类型的head 、tail属性都设置为volatile，保证可见性。
+
+        ![](java/java-concurrent-aqs-attr.png)
+
+
+        通过对源码的理解以及做实验的方式，现在我们可以清楚的知道这样几点：
+
+
+        1. 节点的数据结构，即AQS的静态内部类Node,节点的等待状态等信息；
+
+        2. 同步队列是一个双向队列，AQS通过持有头尾指针管理同步队列；
+
+        那么，节点如何进行入队和出队是怎样做的了？实际上这对应着锁的获取和释放两个操作：获取锁失败进行入队操作，获取锁成功进行出队操作。
+
+    4. 独占式
+
+        1. 独占式同步状态获取
+
+            通过调用同步器的acquire(int arg)方法可以获取同步状态。该方法对中断不敏感，也就是说，由于线程获取同步状态失败后进入同步队列中，后续对线程进行中断操作时，线程不会从同步队列中移除。
+
+            ```java
+            public final void acquire(int arg) {
+                    //先看同步状态是否获取成功，如果成功则方法结束返回
+                    //若失败则先调用addWaiter()方法再调用acquireQueued()方法
+                    if (!tryAcquire(arg) &&
+                        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+                        selfInterrupt();
+            }
+            ```
+
+            独占式同步状态获取流程
+            主要逻辑：首先调用自定义同步器实现的tryAcquire(int arg)方法，该方法保证线程安全的获取同步状态，如果同步状态获取失败，则构造同步节点（独占式Node.EXCLUSIVE，同一时刻只能有一个线程成功获取同步状态）并通过addWaiter(Node node)方法将该节点加入到同步队列的尾部，最后调用acquireQueued(Node node,int arg)方法，使得该节点以“死循环”的方式获取同步状态。
+
+            ![](java/java-concurrent-aqs-exclusive-acquire.png)
+            
+            * 将节点加入同步队列
+
+                当前线程获取同步状态失败时，同步器会将*当前线程、等待状态*等信息构造成为一个节点（Node）并将其加入*同步队列*，同时会**阻塞当前线程**。
+
+                试想一下，当一个线程成功地获取了同步状态（或者锁），其他线程将无法获取到同步状态，转而被构造成为节点并加入到同步队列中，而这个加入队列的过程必须要保证线程安全。
+
+                因此，同步器提供了一个**基于CAS的设置尾节点的方法：compareAndSetTail(Node expect, Node update)**，它需要传递当前线程“认为”的尾节点和当前节点，只有设置成功后，当前节点才正式与之前的尾节点建立关联。
+
+                ![](java/java-concurrent-aqs-enq.png)
+
+                ```java
+                //将节点加入到同步队列的尾部
+                private Node addWaiter(Node mode) {
+                        Node node = new Node(Thread.currentThread(), mode);//生成节点（Node）
+                        // Try the fast path of enq; backup to full enq on failure
+                        //快速尝试在尾部添加
+                        Node pred = tail;
+                        if (pred != null) {
+                            node.prev = pred;//先将当前节点node的前驱指向当前tail
+                            if (compareAndSetTail(pred, node)) {//CAS尝试将tail设置为node
+                                //如果CAS尝试成功，就说明"设置当前节点node的前驱"与"CAS设置tail"之间没有别的线程设置tail成功
+                                //只需要将"之前的tail"的后继节点指向node即可
+                                pred.next = node;
+                                return node;
+                            }
+                        }
+                        enq(node);//否则，通过死循环来保证节点的正确添加
+                        return node;
+                }
+                ```
+
+                ```java
+                //将节点加入到同步队列的尾部
+                 private Node enq(final Node node) {
+                    for (;;) {//通过死循环来保证节点的正确添加
+                        Node t = tail;
+                        if (t == null) { // Must initialize 同步队列为空的情况
+                            if (compareAndSetHead(new Node()))
+                                tail = head;
+                        } else {
+                            node.prev = t;
+                            if (compareAndSetTail(t, node)) {//直到CAS成功为止
+                                t.next = node;
+                                return t;//结束循环
+                            }
+                        }
+                    }
+                }
+                ```
+
+                在enq(final Node node)方法中，同步器通过“死循环”来保证节点的正确添加，在“死循环”中只有通过CAS将节点设置成为尾节点之后，当前线程才能从该方法返回，否则，当前线程不断地尝试设置。可以看出，enq(final Node node)方法将并发添加节点的请求通过CAS变得“*串行化*”了。
+
+                **串行化的优点**
+
+                如果通过加锁同步的方式添加节点，线程必须获取锁后才能添加尾节点，那么必然会导致其他线程等待加锁而阻塞，获取锁的线程释放锁后阻塞的线程又会被唤醒，而线程的阻塞和唤醒需要依赖于系统内核完成，因此程序的执行需要从用户态切换到核心态，而这样的切换是非常耗时的操作。如果我们通过”循环CAS“来添加节点的话，所有线程都不会被阻塞，而是不断失败重试，线程不需要进行锁同步，不仅消除了线程阻塞唤醒的开销而且消除了加锁解锁的时间开销。但是循环CAS也有其缺点，循环CAS通过不断尝试来添加节点，如果说CAS操作失败那么将会占用处理器资源。
+
+                **节点的自旋**
+
+                节点进入同步队列之后，就进入了一个自旋的过程，每个节点（或者说是线程）都在自省地观察，当条件满足，获取到了同步状态，就可以从这个自旋过程中退出，否则依旧留在这个自旋过程中。
+
+                ```java
+                final boolean acquireQueued(final Node node, int arg) {  
+                    boolean failed = true;  
+                    try {  
+                        boolean interrupted = false;  
+                        for (;;) {//无限循环  
+                            final Node p = node.predecessor();  
+                            if (p == head && tryAcquire(arg)) {//前驱节点是首节点且获取到了同步状态  
+                                setHead(node); //设置首节点  
+                                p.next = null; // help GC 断开引用  
+                                failed = false;  
+                                return interrupted;//从自旋中退出  
+                            }  
+                            if (shouldParkAfterFailedAcquire(p, node) &&//获取同步状态失败后判断是否需要阻塞或中断  
+                                parkAndCheckInterrupt())//阻塞当前线程  
+                                interrupted = true;  
+                        }  
+                    } finally {  
+                        if (failed)  
+                            cancelAcquire(node);  
+                    }  
+                } 
+                ```
+
+                ```java
+                /**Checks and updates status for a node that failed to acquire. 
+                 * Returns true if thread should block. This is the main signal control in all acquire loops.*/  
+                private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {  
+                    int ws = pred.waitStatus;//获取前驱节点的等待状态  
+                    if (ws == Node.SIGNAL)  
+                    //SIGNAL状态：前驱节点释放同步状态或者被取消，将会通知后继节点。因此，可以放心的阻塞当前线程，返回true。  
+                        /* This node has already set status asking a release to signal it, so it can safely park.*/  
+                        return true;  
+                    if (ws > 0) {//前驱节点被取消了，跳过前驱节点并重试  
+                        /* Predecessor was cancelled. Skip over predecessors and indicate retry. */  
+                        do {  
+                            node.prev = pred = pred.prev;  
+                        } while (pred.waitStatus > 0);  
+                        pred.next = node;  
+                    } else {//独占模式下，一般情况下这里指前驱节点等待状态为SIGNAL  
+                        /* waitStatus must be 0 or PROPAGATE.  Indicate that we  need a signal, but don't park yet.  Caller will need to 
+                         * retry to make sure it cannot acquire before parking. */  
+                        compareAndSetWaitStatus(pred, ws, Node.SIGNAL);//设置当前节点等待状态为SIGNAL  
+                    }  
+                    return false;  
+                }
+                ```
+
+                ```java
+                /** Convenience method to park and then check if interrupted 。return {@code true} if interrupted */  
+                private final boolean parkAndCheckInterrupt() {  
+                    LockSupport.park(this);//阻塞当前线程  
+                    return Thread.interrupted();  
+                }
+                ```
+
+                ![](java/java-concurrent-aqs-spin.png)
+
+                可以看到节点和节点之间在循环检查的过程中基本不相互通信，而是简单地判断自己的前驱是否为头节点，这样就使得节点的释放规则符合FIFO。并且也便于对过早通知的处理（过早通知是指：前驱节点不是头节点的线程由于中断而被唤醒）。
+
+                当同步状态获取成功之后，当前线程从acquire(int arg)方法返回，如果对于锁这种并发组件而言，代表着当前线程获取了锁。
+
+                **设置首节点**
+
+                同步队列遵循FIFO，首节点是获取同步状态成功的节点，首节点的线程在释放同步状态时，将会唤醒后续节点，而后续节点将会在获取同步状态成功时将自己设置为首节点。
+
+                ![](java/java-concurrent-aqs-head-node-set.png)
+
+                设置首节点是由获取同步状态成功的线程来完成的，由于只有一个线程能够成功的获取到同步状态，因此设置头节点的方法并不需要使用CAS来保证，它只需要将首节点设置成为原首节点后继节点，并断开首节点的next引用即可。
+
+
+        2. 独占式同步状态释放
+
+            当前线程获取同步状态并执行了相应逻辑之后，就需要释放同步状态，使得后续节点能够继续获取同步状态。通过调用同步器的**release(int arg)**方法可以释放同步状态，该方法在释放了同步状态之后，会"唤醒"其后继节点（进而使后继节点重新尝试获取同步状态）。
+
+            ```java
+            public final boolean release(int arg) {  
+                if (tryRelease(arg)) {//释放同步状态  
+                    Node h = head;  
+                    if (h != null && h.waitStatus != 0)//独占模式下这里表示SIGNAL  
+                        unparkSuccessor(h);//唤醒后继节点  
+                    return true;  
+                }  
+                return false;  
+            }
+            ```
+
+            ```java
+            /** Wakes up node's successor, if one exists.*/  
+            private void unparkSuccessor(Node node) {  
+                int ws = node.waitStatus;//获取当前节点等待状态  
+                if (ws < 0)  
+                    compareAndSetWaitStatus(node, ws, 0);//更新等待状态  
+              
+                /* Thread to unpark is held in successor, which is normally just the next node.   
+                   But if cancelled or apparently null, 
+                 * traverse backwards from tail to find the actual non-cancelled successor.*/  
+                Node s = node.next;  
+                if (s == null || s.waitStatus > 0) {//找到第一个没有被取消的后继节点（等待状态为SIGNAL）  
+                    s = null;  
+                    for (Node t = tail; t != null && t != node; t = t.prev)  
+                        if (t.waitStatus <= 0)  
+                            s = t;  
+                }  
+                if (s != null)  
+                    LockSupport.unpark(s.thread);//唤醒后继线程  
+            }
+            ```
+        
+        
+        
+     
+     
+    5. 共享式
+
+        1. 共享式同步状态获取
+
+            共享式获取与独占式获取最主要的区别在于同一时刻能否有多个线程同时获取到同步状态。以文件的读写为例，如果一个程序在对文件进行读操作，那么这一时刻对于该文件的写操作均被阻塞，而读操作能够同时进行。写操作要求对资源的独占式访问，而读操作可以是共享式访问。
+
+            ![](java/java-concurrent-aqs-exclusive-share-compare.png)
+
+
 
 
 #### concurrent包的实现
@@ -209,3 +538,5 @@ AQS，非阻塞数据结构和原子变量类（java.util.concurrent.atomic包�
 ![](java/java-concurrent-cas-aqs.png)
 
 原文：http://www.cnblogs.com/kisty/p/5408264.html
+https://www.jianshu.com/p/7a65ab32de2a
+https://blog.csdn.net/summer_yuxia/article/details/71452310 
