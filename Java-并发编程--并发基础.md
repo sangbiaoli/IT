@@ -445,6 +445,10 @@
                 return false;
             }
 
+            private final boolean parkAndCheckInterrupt() {
+                LockSupport.park(this);//调用park()使线程进入waiting状态
+                return Thread.interrupted();//如果被唤醒，查看自己是不是被中断的。
+            }
 
             /**
             * 该方法实现某个node取消获取锁。
@@ -831,4 +835,5 @@ AQS，非阻塞数据结构和原子变量类（java.util.concurrent.atomic包�
 原文：http://www.cnblogs.com/kisty/p/5408264.html
 https://www.jianshu.com/p/7a65ab32de2a
 https://www.cnblogs.com/micrari/p/6937995.html
-https://blog.csdn.net/summer_yuxia/article/details/71452310 
+https://blog.csdn.net/summer_yuxia/article/details/71452310
+https://www.cnblogs.com/waterystone/p/4920797.html
