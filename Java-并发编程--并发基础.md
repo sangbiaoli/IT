@@ -523,38 +523,6 @@
                     node.next = node; 
                 }
             }
-
-            /**
-            * 唤醒后继线程。
-            */
-            private void unparkSuccessor(Node node) {
-                int ws = node.waitStatus;
-                // 尝试将node的等待状态置为0,这样的话,后继争用线程可以有机会再尝试获取一次锁。
-                if (ws < 0)
-                    compareAndSetWaitStatus(node, ws, 0);
-
-                Node s = node.next;
-                /*
-                * 这里的逻辑就是如果node.next存在并且状态不为取消，则直接唤醒s即可
-                * 否则需要从tail开始向前找到node之后最近的非取消节点。
-                *
-                * 这里为什么要从tail开始向前查找也是值得琢磨的:
-                * 如果读到s == null，不代表node就为tail，参考addWaiter以及enq函数中的我的注释。
-                * 不妨考虑到如下场景：
-                * 1. node某时刻为tail
-                * 2. 有新线程通过addWaiter中的if分支或者enq方法添加自己
-                * 3. compareAndSetTail成功
-                * 4. 此时这里的Node s = node.next读出来s == null，但事实上node已经不是tail，它有后继了!
-                */
-                if (s == null || s.waitStatus > 0) {
-                    s = null;
-                    for (Node t = tail; t != null && t != node; t = t.prev)
-                        if (t.waitStatus <= 0)
-                            s = t;
-                }
-                if (s != null)
-                    LockSupport.unpark(s.thread);
-            }
             ```
 
             AQS独占锁的获取的流程示意如下：
@@ -600,6 +568,38 @@
                     return true;
                 }
                 return false;
+            }
+
+             /**
+            * 唤醒后继线程。
+            */
+            private void unparkSuccessor(Node node) {
+                int ws = node.waitStatus;
+                // 尝试将node的等待状态置为0,这样的话,后继争用线程可以有机会再尝试获取一次锁。
+                if (ws < 0)
+                    compareAndSetWaitStatus(node, ws, 0);//配合方法acquireQueued，if (p == head && tryAcquire(arg)) 
+
+                Node s = node.next;
+                /*
+                * 这里的逻辑就是如果node.next存在并且状态不为取消，则直接唤醒s即可
+                * 否则需要从tail开始向前找到node之后最近的非取消节点。
+                *
+                * 这里为什么要从tail开始向前查找也是值得琢磨的:
+                * 如果读到s == null，不代表node就为tail，参考addWaiter以及enq函数中的我的注释。
+                * 不妨考虑到如下场景：
+                * 1. node某时刻为tail
+                * 2. 有新线程通过addWaiter中的if分支或者enq方法添加自己
+                * 3. compareAndSetTail成功
+                * 4. 此时这里的Node s = node.next读出来s == null，但事实上node已经不是tail，它有后继了!
+                */
+                if (s == null || s.waitStatus > 0) {
+                    s = null;
+                    for (Node t = tail; t != null && t != node; t = t.prev)
+                        if (t.waitStatus <= 0)
+                            s = t;
+                }
+                if (s != null)
+                    LockSupport.unpark(s.thread);
             }
             ```
             整个release做的事情就是
