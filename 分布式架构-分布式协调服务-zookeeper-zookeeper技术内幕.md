@@ -66,6 +66,62 @@
 
 2. Watcher核心机制
 
+    在Zookeeper中，引入了Watcher机制来实现这种分布式的通知功能。Zook允许客户端向服务端注册一个Watcher监听，当服务端的一些指定事件触发了这个Watcher，那么就会向指定客户端发送一个事件通知来实现分布式的通知功能。整个Watcher注册与通知过程如图
+
+    ![](zookeeper/zookeeper-tech-watcher.jpg)
+
+    从图中可以看到，Zookeeper的Watcher机制主要包括客户端线程、客户端WatcherManager和Zookeeper服务器三部分。在具体工作流程上，简单的讲，客户端在向Zookeeper服务器注册Watcher的同时，会将Watcher对象存储在客户端的WatcherManager中。当Zookeeper服务器触发Watcher事件后，会向客户端发送通知，客户端线程从WatcherManager中取出对应的Watcher对象来执行回调逻辑。
+
+    * Watcher接口
+
+        在Zookeeper中，接口类Watcher用于表示一个标准的事件处理器，其定义了事件通知相关的逻辑，包含KeeperState和EventType两个枚举类，分别代表了通知状态和时间类型，同时定义了事件的回调方法：process(WatcherEvent event)。
+    
+    * Watcher事件
+
+        同一个时间类型在不同的通知状态中代表的含义有所不同，如表
+
+        ![](zookeeper/zookeeper-tech-watcher-event.jpg)
+
+        **回调方法process()**
+
+        process方法是Watcher接口中的一个回调方法，当Zookeeper向客户端发送一个Watcher事件通知时，客户端机会对相应的process方法进行回调，从而实现对事件的处理。process方法的定义如下：
+
+        ```java
+        abstract public void process(WatchedEvent event);
+        ```
+
+        这个回调方法的定义非常简单，我们重点看下方法的参数定义：WatchedEvent。
+
+        WatchedEvent包含了一个事件的三个基本属性
+        * 通知状态(keeperState)
+        * 事件类型(eventType)
+        * 节点路径(path)
+
+        其数据结构如图，Zookeeper使用WatchedEvent对象来封装服务端事件并传递给Watcher，从而方便回调方法process对服务端事件继续拧处理。
+
+        ![](zookeeper/zookeeper-tech-watcher-watchedevent-attribute.jpg)
+
+        提到WatchedEvent，不得不讲下WatcherEvent实体。笼统的讲，两者表示的是同一个事物，都是对一个服务端事件的封装。不同的是，WatchedEvent是一个逻辑事件，用于服务端和客户端程序执行过程中所需的逻辑对象。而WatcherEvent因为实现了序列化接口，因此可以用于网络传输，如图
+
+        ![](zookeeper/zookeeper-tech-watcher-watcherevent-attribute.jpg)
+
+    * 工作机制
+
+        Zookeeper的Watcher机制，总的来说可以概括为以下三个过程：客户端注册Watcher、服务端处理Watcher和客户端回调Watcher，其内部各组件之间关系如图
+
+        ![](zookeeper/zookeeper-tech-watcher-uml.jpg)
+
+        * 客户端Watcher注册流程图
+
+            ![](zookeeper/zookeeper-tech-watcher-register.jpg)
+
+        * 服务端处理Watcher的时序图
+
+            ![](zookeeper/zookeeper-tech-watcher-server-handle.jpg)
+
+        * 客户端回调Watcher
+
+
 3. Zab协议
 
     Zookeeper使用了一种Zookeeper Atomic Broadcast(ZAB，Zookeeper原子消息广播协议)的协议作为其数据一致性的核心算法。
