@@ -372,6 +372,63 @@
         ```
 
 3. Streams
+
+    伴随java.io.File and java.io.RandomAccessFile，Java的经典I/Oj基础还提供了流来执行I/O操作。
+    一个流是一个任意长度的有序字节序列。
+
+    * 流类的概览
+
+        java.io包体统了几种输出流和输入流，如图
+
+        ![](java/java-io-io-stream-outputstream.png)
+
+        ![](java/java-io-io-stream-inputstream.png)
+
+        除此之外，java包还提供了额外的输出输入流，比如java.util.zip包
+
+        * CheckedOutputStream
+        * CheckedInputStream
+        * DeflaterOutputStream
+        * DeflaterInputStream
+        * GZIPOutputStream
+        * GZIPInputStream
+        * InflaterOutputStream
+        * InflaterInputStream
+        * ZipOutputStream
+        * ZipInputStream
+
+        又比如java.util.jar包
+
+        * JarOutputStream
+        * JarInputStream
+
+    * OutputStream和InputStream
+
+        Java提供OutputStream和InputStream来描述执行流 I/O
+
+        *OutputStream的方法*
+        方法|说明
+        --|--
+        void close|关闭输出流并释放任何与这个流关联的操作系统资源
+        void flush()|通过写入任何已经缓存的字节到目的地来刷新此输出流
+        void write(byte[] b)|从b数组写入b长度的字节数据到这个输出流
+        void write(byte[] b,int off,int len)|从b数组写入len长度的字节数据到这个输出流在off的位置
+        void write(int b)|往这个输出流写入字节b，只有低8位会被写入，高32位被忽略
+
+        *InputStream的方法*
+        方法|说明
+        --|--
+        int available()|通过下一次的read()方法，返回一个能被这个输入流读取的估算值。
+        void close()|关闭输入流并释放任何与这个流关联的操作系统资源
+        void mark(int readlimit)|标记这个输入流的当前位置
+        boolean markSupported()|如果这个输入流支持mark()或reset()方法则返回true，否则返回false
+        int read()|从这输入流读取并返回下一个字节,该值是一个0-255整数，如果到达留的底部，返回-1
+        int read(byte[] b)|从输入流读取一些数据并存储到字节数组b中
+        int read(byte[] b,int off,int len)|从输入流读取不超过n长度的数据并存储到字节数组b中off的位置
+        void reset()|重置输入流的指针到上次调用mark()的位置。
+        long skip(long n)|从这个输入流中跳过并丢弃n个字节的数据
+
+
 4. Writers and Readers
 
-原文：Java I-O, NIO and NIO.2
+原文：book/Java I-O, NIO and NIO.2.pdf
