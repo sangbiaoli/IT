@@ -684,7 +684,86 @@
 
     * 对象序列化和反序列化
 
-        
+        Java提供了DataOutputStream和DataInputStream对原始类型和字符串对象进行流化。然而，却不能使用这些类对非字符串对象进行流化。相反，必须使用序列化和反序列化来对任何类型对象进行流化。
+
+        对象序列化是用于序列化的Java虚拟机(JVM)机制，对象状态转换为字节流。
+        对象反序列化是用于反序列化的Java虚拟机(JVM)机制，从字节流转为对象状态。
+
+        要是想序列化和反序列化，首先对象要实现接口java.io.Serializable，其次通过ObjectOutputStream的writeObject()来序列化对象，然后用ObjectInputStream的readObject()来反序列化对象。
+
+        ```
+        对象的状态由存储基元类型值和/或对其他对象的引用的实例字段组成
+        ```
+
+        ```java
+        import java.io.Serializable;
+
+        public class Employee implements Serializable {
+            private String name;
+            private int age;
+
+            public Employee(String name, int age) {
+                this.name = name;
+                this.age = age;
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public int getAge() {
+                return age;
+            }
+        }
+        ```
+
+        ```java
+        import java.io.FileInputStream;
+        import java.io.FileOutputStream;
+        import java.io.IOException;
+        import java.io.ObjectInputStream;
+        import java.io.ObjectOutputStream;
+
+        public class SerializationDemo {
+            final static String FILENAME = "employee.dat";
+
+            public static void main(String[] args) {
+                ObjectOutputStream oos = null;
+                ObjectInputStream ois = null;
+                try {
+                    FileOutputStream fos = new FileOutputStream(FILENAME);
+                    oos = new ObjectOutputStream(fos);
+                    Employee emp = new Employee("John Doe", 36);
+                    oos.writeObject(emp);
+                    oos.close();
+                    oos = null;
+                    FileInputStream fis = new FileInputStream(FILENAME);
+                    ois = new ObjectInputStream(fis);
+                    emp = (Employee) ois.readObject(); // (Employee) cast is necessary.
+                    ois.close();
+                    System.out.println(emp.getName());
+                    System.out.println(emp.getAge());
+                } catch (ClassNotFoundException cnfe) {
+                    System.err.println(cnfe.getMessage());
+                } catch (IOException ioe) {
+                    System.err.println(ioe.getMessage());
+                } finally {
+                    if (oos != null)
+                        try {
+                            oos.close();
+                        } catch (IOException ioe) {
+                            assert false; // shouldn't happen in this context
+                        }
+                    if (ois != null)
+                        try {
+                            ois.close();
+                        } catch (IOException ioe) {
+                            assert false; // shouldn't happen in this context
+                        }
+                }
+            }
+        }
+        ```
 
 4. Writers and Readers
 
