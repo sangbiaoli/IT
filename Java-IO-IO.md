@@ -765,6 +765,179 @@
         }
         ```
 
-4. Writers and Readers
+4. Writers和Readers
+
+    如果需要对字符流化，可以使用Java的writer和reader类，它们是被设计来支持字符I/O，更深一层，writer和reader类还考虑了编码
+
+    * Writers和Readers的概览
+
+        ![](java/java-io-io-writer.png)
+
+        ![](java/java-io-io-reader.png)
+
+        ```
+        尽管writer和reader类的继承方式与output stream和input stream方式相似，但是仍然有不同的地方，比如 FilterWriter和FilterReader是抽象的，BufferedWriter和BufferedReader没有继承FilterWriter和FilterReader。
+        ```
+
+    * Writer和Reader
+
+        Java提供Writer和Reader类提执行字符I/O，Writer是所有writer子类的超类，下面列出Writer和java.io.OutputStream之间的区别
+
+        * Writer声明了几个append()方法来追加字符到这个writer。
+        * Writer声明了额外的write()方法，包括一个方便的void write(String str)方法来写入一个字符串对象字符到这个writer。
+
+        Reader是所有reader子类的超类，下面列出Reader和java.io.InputStream之间的区别
+
+        * Reader声明了read(char[])和read(char[],int,int)方法来替代read(byte[])和byte(char[],int,int)方法
+        * Reader没有声明available()方法
+        * Reader声明了一个boolean ready()方法，当保证下一次read()调用不会阻塞输入时，该方法返回true
+        * Reader声明一个int read(CharBuffer目标)从字符缓冲区读取字符的方法。
+
+    * OutputStreamWriter和InputStreamReader
+
+        具体的OutputStreamWriter类(Writer子类)是传入字符序列和传出字节流之间的桥梁
+
+        *OutputStreamWriter的方法*
+        方法|说明
+        --|--
+        OutputStreamWriter(OutputStream out)|在输入的字符序列之间创建一个桥(通过它的append()和write()方法传递给OutputStreamWriter)，并输出底层的输出流
+
+        ```java
+        import java.io.FileOutputStream;
+        import java.io.IOException;
+        import java.io.OutputStreamWriter;
+
+        public class WriterDemo {
+
+            public static void main(String[] args) throws IOException {
+                FileOutputStream fos = new FileOutputStream("polish.txt");
+                try(OutputStreamWriter osw = new OutputStreamWriter(fos, "8859_2")){			
+                    char ch = '\u0323'; // Accented N.
+                    osw.write(ch);
+                }
+            }
+        }
+
+        //注意里面的写法try(){}
+        ```
+
+        具体的InputStreamReader类(Reader子类)是传入的字节流和传出的字符序列之间的桥梁
+
+        *InputStreamReader的方法*
+        方法|说明
+        --|--
+        InputStreamReader(InputStream in)|在底层输入流和输出字符序列之间创建一个桥(通过其read()方法从InputStreamReader返回)
+
+        ```java
+        import java.io.FileInputStream;
+        import java.io.IOException;
+        import java.io.InputStreamReader;
+
+        public class ReaderDemo {
+            public static void main(String[] args) throws IOException {
+                FileInputStream fis;
+                fis = new FileInputStream("polish.txt");
+                try (InputStreamReader isr = new InputStreamReader(fis, "8859_2")) {
+                    int ch = isr.read();
+                    System.out.println(ch);
+                }
+            }
+        }
+        ```
+
+    * FileWriter和FileReader
+
+        FileWriter是一个方便的类用于写入字符到文件中
+
+        ```java
+        FileOutputStream fos = new FileOutputStream(path);
+        OutputStreamWriter osw;
+        osw = new OutputStreamWriter(fos, System.getProperty("file.encoding"));
+        ```
+
+        FileReader是一个方便的类用于从文件中读取字符
+
+        ```java
+        FileInputStream fis = new FileInputStream(path);
+        InputStreamReader isr;
+        isr = new InputStreamReader(fis, System.getProperty("file.encoding"));
+        ```
+
+        FileWriter和FileReader不提供自己的方法，相反，他们调用继承的方法，比如
+
+        方法|说明
+        --|--
+        void write(String str, int off, int len)|从零为基础的偏移写入len长度的字符串str
+        int read(char[] cbuf, int off, int len)|从零为基础的偏移读取len长度的字符串str
+
+        ```java
+        import java.io.FileReader;
+        import java.io.FileWriter;
+        import java.io.IOException;
+
+        public class FWFRDemo {
+            final static String MSG = "Test message";
+
+            public static void main(String[] args) throws IOException {
+                try (FileWriter fw = new FileWriter("temp")){
+                    fw.write(MSG, 0, MSG.length());
+                }
+
+                char[] buf = new char[MSG.length()];
+                try (FileReader fr = new FileReader("temp")){			
+                    fr.read(buf, 0, MSG.length());
+                    System.out.println(buf);
+                }
+            }
+        }
+        ```
+
+    * BufferedWriter和BufferedReader
+
+        BufferedWriter写入文本到一个字符输出流。
+
+        方法|说明
+        --|--
+        BufferedWriter(Writer out)|
+        BufferedWriter(Writer out, int size)|
+
+        BufferedReader从一个字符输入流读取文本
+
+        方法|说明
+        --|--
+        BufferedReader(Reader in)|
+        BufferedReader(Reader in, int size)|
+
+        ```java
+        import java.io.BufferedReader;
+        import java.io.BufferedWriter;
+        import java.io.FileReader;
+        import java.io.FileWriter;
+        import java.io.IOException;
+
+        public class BWBRDemo {
+            static String[] lines = { 
+                "It was the best of times, it was the worst of times,",
+                "it was the age of wisdom, it was the age of foolishness,",
+                "it was the epoch of belief, it was the epoch of incredulity,",
+                "it was the season of Light, it was the season of Darkness,",
+                "it was the spring of hope, it was the winter of despair." 
+            };
+
+            public static void main(String[] args) throws IOException {
+                try (BufferedWriter bw = new BufferedWriter(new FileWriter("temp"))) {
+                    for (String line : lines) {
+                        bw.write(line, 0, line.length());
+                        bw.newLine();
+                    }
+                }
+                try (BufferedReader br = new BufferedReader(new FileReader("temp"))) {
+                    String line;
+                    while ((line = br.readLine()) != null)
+                        System.out.println(line);
+                }
+            }
+        }
+        ```
 
 原文：book/Java I-O, NIO and NIO.2.pdf
