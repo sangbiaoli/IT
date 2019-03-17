@@ -32,7 +32,7 @@
         public class DumpRoots {
             public static void main(String[] args) {
                 File[] roots = File.listRoots();
-                for (File root : roots)
+                for (File root  : roots)
                     System.out.println(root);
             }
         }
@@ -52,8 +52,8 @@
         public class PartitionSpace {
             public static void main(String[] args) {
                 File[] roots = File.listRoots();
-                for (File root : roots) {
-                    System.out.println("Partition: " + root);
+                for (File root  : roots) {
+                    System.out.println("Partition : " + root);
                     System.out.println("Free space on this partition = " + root.getFreeSpace());
                     System.out.println("Usable space on this partition = " + root.getUsableSpace());
                     System.out.println("Total space on this partition = " + root.getTotalSpace());
@@ -88,7 +88,7 @@
                     }
                 };
                 String[] names = file.list(fnf);
-                for (String name : names)
+                for (String name  : names)
                     System.out.println(name);
             }
         }
@@ -129,10 +129,10 @@
 
         两个方法中，mode参数只能是"r", "rw","rws"或"rwd"，否则抛出java.lang.IllegalArgumentException。
 
-        * r : 打开一个存在的文件，并且只读。
-        * rw : 文件存在则提供读写，不存在则创建新文件再提供读写。
-        * rwd : 文件存在则提供读写，不存在则创建新文件再提供读写，并且每个对文件内容的更新操作都会异步的写入到底层设备
-        * rwd : 文件存在则提供读写，不存在则创建新文件再提供读写，并且每个对文件内容或文件元数据的更新操作都会异步的写入到底层设备
+        * r  : 打开一个存在的文件，并且只读。
+        * rw  : 文件存在则提供读写，不存在则创建新文件再提供读写。
+        * rwd  : 文件存在则提供读写，不存在则创建新文件再提供读写，并且每个对文件内容的更新操作都会异步的写入到底层设备
+        * rwd  : 文件存在则提供读写，不存在则创建新文件再提供读写，并且每个对文件内容或文件元数据的更新操作都会异步的写入到底层设备
 
     * RandomAccessFile方法
 
@@ -428,6 +428,263 @@
         void reset()|重置输入流的指针到上次调用mark()的位置。
         long skip(long n)|从这个输入流中跳过并丢弃n个字节的数据
 
+    * ByteArrayOutputStream和ByteArrayInputStream
+
+        * ByteArrayOutputStream
+
+            对象内置属性
+            * byte buf[] : 存储数据的buf
+            * int count : 在buf中有效的字节数
+
+            方法|说明
+            --|--
+            ByteArrayOutputStream()|创建一个输出流对象，默认初始化32个字节的buf
+            ByteArrayOutputStream(int size)|创建一个输出流对象，初始化size个字节的buf
+
+            ByteArrayInputStream方法对象内置属性
+            * byte buf[] : 存储数据的buf
+            * int count : 在buf中有效的字节数
+
+        * ByteArrayInputStream
+
+            对象内置属性
+            * byte buf[] : 存储数据的buf
+            * int pos : 要从输入流buf读取的下一个字符的索引
+            * int mark : 流当前标记的位置
+            * int count : 大于输入流buf中最后一个有效字符的索引
+
+            方法|说明
+            --|--
+            ByteArrayInputStream(byte[] buf)|创建一个输入流对象，直接使用buf作为buf，并设置pos为0，count为buf的长度
+            ByteArrayInputStream(byte[] buf, int offset, int count)|创建一个输入流对象，直接使用buf作为buf，pos设置为offset，count为min(offset+length,buf.length)，mark为offset。
+
+            ByteArrayOutputStream和ByteArrayInputStream对于处理图片转换很有用，可以先读取图片到字节数组，然后处理该数组，最后写回到图片。
+
+    * FileOutputStream和FileInputStream
+
+        *FileOutputStream的方法*
+        方法|说明
+        --|--
+        FileOutputStream(String name)|创建一个文件输出流来写入到指定名字的文件，且创建一个新的FileDescriptor对象来表示这个file的连接，如果是一个目录而不是一个文件，则不创建也不能打开，并且抛出异常
+        FileOutputStream(File file)|创建一个文件输出流来写入到指定File实例，且创建一个新的FileDescriptor对象来表示这个file的连接，如果是一个目录而不是一个文件，则不创建也不能打开，并且抛出异常
+
+        *FileInputStream的方法*
+        方法|说明
+        --|--
+        FileInputStream(String name)|通过打开一个实际文件连接来创建一个文件输入流，且创建一个新的FileDescriptor对象来表示这个file的连接
+        FileInputStream(File file)|通过打开一个实际文件连接来创建一个文件输入流，该文件由文件系统中的Fileobject文件命名，且创建一个新的FileDescriptor对象来表示这个file的连接
+
+        ```java
+        import java.io.FileInputStream;
+        import java.io.FileNotFoundException;
+        import java.io.FileOutputStream;
+        import java.io.IOException;
+
+        public class Copy {
+            public static void main(String[] args) {
+
+                String src = "a.txt";
+                String desc = "b.txt";
+                FileInputStream fis = null;
+                FileOutputStream fos = null;
+                try {
+                    fis = new FileInputStream(src);
+                    fos = new FileOutputStream(desc);
+                    int b; // I chose b instead of byte because byte is a reserved
+                    // word.
+                    while ((b = fis.read()) != -1)
+                        fos.write(b);
+                } catch (FileNotFoundException fnfe) {
+                    System.err.println(
+                            args[0] + " could not be opened for input, or " + args[1] + " could not be created for output");
+                } catch (IOException ioe) {
+                    System.err.println("I/O error: " + ioe.getMessage());
+                } finally {
+                    if (fis != null)
+                        try {
+                            fis.close();
+                        } catch (IOException ioe) {
+                            assert false; // shouldn't happen in this context
+                        }
+                    if (fos != null)
+                        try {
+                            fos.close();
+                        } catch (IOException ioe) {
+                            assert false; // shouldn't happen in this context
+                        }
+                }
+            }
+        }
+        ```
+
+    * PipedOutputStream和PipedInputStream
+
+        线程间经常通讯，一种方法涉及使用共享变量，另一种方法是使用管道流，通过使用PipedOutputStream和PipedInputStream这两个类。PipedOutputStream让**发送线程**写字节数组流数据到**接收线程**的PipedInputStream实例。
+
+        *PipedOutputStream的方法*
+        方法|说明
+        --|--
+        PipedOutputStream()|创建一个管道输出流，但还没连接到管道输入流，使用前必须连接到一个管道输入流
+        PipedOutputStream(PipedInputStream dest)|创建一个管道输出流，且已经连接到管道输入流
+
+        *PipedInputStream的方法*
+        方法|说明
+        --|--
+        PipedInputStream()|创建一个管道输入流，但还没连接到管道输出流，使用前必须连接到一个管道输入流
+        PipedOutputStream(PipedOutputStream src)|创建一个管道输出流，且已经连接到管道输出流
+        PipedInputStream(int pipeSize)|创建一个管道输入流，但还没连接到管道输出流，使用pipeSize来设定输入流buffer的大小，使用前必须连接到一个管道输入流
+
+        ```java 
+        import java.io.IOException;
+        import java.io.PipedInputStream;
+        import java.io.PipedOutputStream;
+
+        public class PipedStreamsDemo {
+            final static int LIMIT = 10;
+
+            public static void main(String[] args) throws IOException {
+                final PipedOutputStream pos = new PipedOutputStream();
+                final PipedInputStream pis = new PipedInputStream(pos);
+                Runnable senderTask = new Runnable() {
+                    public void run() {
+                        try{
+                            for (int i = 0; i < LIMIT; i++) {
+                                pos.write((byte)(Math.random()*256));
+                            }
+                        }catch(IOException e){
+                            e.printStackTrace();
+                        }finally {
+                            try{
+                                pos.close();
+                            }catch(IOException e){
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                };
+                Runnable receiveTask = new Runnable() {
+                    public void run() {
+                        try{
+                            int b;
+                            while ((b = pis.read()) != -1) {
+                                System.out.println(b);
+                            }
+                        }catch(IOException e){
+                            e.printStackTrace();
+                        }finally {
+                            try{
+                                pis.close();
+                            }catch(IOException e){
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                };
+
+                Thread sender = new Thread(senderTask);
+                Thread receiver = new Thread(receiveTask);
+                sender.start();
+                receiver.start();
+            }
+        }
+        ```
+
+    * FilterOutputStream和FilterInputStream
+
+        前面所说的byteArray，file以及piped流都是原封不动的传递字节数据到目的地。
+        Java还支持过滤缓冲区流，压缩/解压，解密/解密，或者在到达目的地之前处理一个流的字节序列。
+
+        * FilterOutputStream
+
+            一个过滤输出流把数据传递给write()方法，过滤它，把过滤后的数据写入到潜在的输出流，也许是另一个输出流或目的输出流
+
+            由于FilterOutputStream继承OutputStream，且内置了一个属性OutputStream out，该类所实现的方法大多直接调用out的方法。
+
+            方法|说明
+            --|--
+            FilterOutputStream(OutputStream out)|构造一个输出流过滤器，并设置out属性
+
+        * FilterOutputStream
+
+            过滤器输入流从其底层输入获取数据流——可能是另一个过滤器输入流或源输入流。
+
+            与FilterOutputStream相似，FilterInputStream继承InputStream，且内置了一个属性InputStream in，该类所实现的方法大多直接调用in的方法
+
+            方法|说明
+            --|--
+            FilterOutputStream(InputStream in)|构造一个输出流过滤器，并设置in属性
+
+    * BufferedOutputStream和BufferedInputStream
+
+        FileOutputStream和FileInputStream存在着性能问题，每个文件输出流write()方法调用和文件输入流read()都会使用native方法，该方法会调用底层操作系统的函数，这些native方法降低I/O。
+
+        具体的BufferedOutputStream和bufferdinputstream**过滤器流**类通过最小化底层输出流write()方法和输入流read()方法来提高性能，另外，BufferedOutputStream的write()方法和BufferedInputStream的read()
+        方法考虑Java缓冲区：
+
+        * 当一个写缓冲区满了，write方法会调用底层输出流write()方法来清空缓冲区，如此后续可以继续调用write方法直到再一次被写满。
+        * 当一个读缓冲区空了，read方法会调用底层输出流read()方法来填充缓冲区，如此后续可以继续调用read方法直到再一次空了。
+
+        **BufferedOutputStream继承于FilterOutputStream，而BufferedInputStream继承于FilterInputStream**
+
+        *BufferedOutputStream方法*
+        方法|说明
+        --|--
+        BufferedOutputStream(OutputStream out)|创建一个缓存输出流，并设置内置out
+        BufferedOutputStream(OutputStream out, int size)|创建一个缓存输出流，并设置内置out，初始化内置的buf，字节大小为size
+
+        *BufferedInputStream方法*
+        方法|说明
+        --|--
+        BufferedInputStream(InputStream in)|创建一个缓存输入流，并设置内置in
+        BufferedInputStream(InputStream in, int size)|创建一个缓存输入流，并设置内置in，初始化内置的buf，字节大小为size
+
+    * DataOutputStream和DataInputStream
+
+        FileOutputStream和FileInputStream主要用于读写字节或字节数组，却没提供读写原始类型，比如integers和strings。
+
+        因此，Java提供了具体的DataOutputStream和DataInputStream**过滤器流**类，每个类都通过提供以与操作系统无关的方式编写或读取基元类型值和字符串的方法来克服这种限制
+
+        * 整数值以大端格式读写
+        * 浮点值和双精度浮点值根据IEEE 754标准进行读写，该标准为每个浮点值指定4个字节，每个双精度浮点值指定8个字节。
+        * 字符串是根据UTF-8的修改版本编写和读取的，UTF-8是一种可变长度编码，有效存储双字节Unicode字符的标准。
+
+        ```java
+        import java.io.DataInputStream;
+        import java.io.DataOutputStream;
+        import java.io.FileInputStream;
+        import java.io.FileOutputStream;
+        import java.io.IOException;
+
+        public class DataStreamsDemo {
+            final static String FILENAME = "values.dat";
+
+            public static void main(String[] args) {
+                try {
+                    FileOutputStream fos = new FileOutputStream(FILENAME);
+                    DataOutputStream dos = new DataOutputStream(fos);
+                    dos.writeInt(1995);
+                    dos.writeUTF("Saving this String in modified UTF-8 format!");
+                    dos.writeFloat(1.0F);
+                } catch (IOException ioe) {
+                    System.err.println("I/O error: " + ioe.getMessage());
+                }
+                try {
+                    FileInputStream fis = new FileInputStream(FILENAME);
+                    DataInputStream dis = new DataInputStream(fis);
+
+                    System.out.println(dis.readInt());
+                    System.out.println(dis.readUTF());
+                    System.out.println(dis.readFloat());
+                } catch (IOException ioe) {
+                    System.err.println("I/O error: " + ioe.getMessage());
+                }
+            }
+        }
+        ```
+
+    * 对象序列化和反序列化
+
+        
 
 4. Writers and Readers
 
