@@ -195,7 +195,103 @@
 
 2. Channels
 
-    
+    通道是一个对象，能够打开一个连接到一个硬件设备，一个文件，一个网络socket，一个应用组件，或者是一个可以提供读写或其他I/O操作特性的对象。通道在字节缓冲区和基于操作系统I/O服务的来源或目的地之间高效的传输数据。
+
+    * 通道及其子类
+
+        Java通过java.nio.channels和java.nio.channels.spi来提供通道的，所有的通道实现类都实现java.nio.channels.Channel接口，Channel接口声明了下面的方法
+
+        1. 方法
+
+            方法|说明
+            --|--
+            void close()|关闭通道
+            boolean isOpen()|返回此通道的打开状态
+
+        2. Channel子类(接口类)
+
+            * java.nio.channels.WriteableByteChannel
+            * java.nio.channels.ReadableByteChannel
+            * java.nio.channels.InterruptibleChannel
+            * java.nio.channels.NetworkChannel
+            * java.nio.channels.AsynchronousChannel
+
+            1. WriteableByteChannel和ReadableByteChannel
+
+                * WriteableByteChannel接口声明了一个抽象方法 int write(ByteBuffer buffer)，该方法从buffer写入一序列字节到当前通道。
+                * ReadableByteChannel接口声明了一个抽象方法 int read(ByteBuffer buffer)，该方法从当前通道中读取一序列字节到buffer中。
+
+            2. InterruptibleChannel
+
+                说明一个通道可以异步的被关闭和被中断，这个接口重载了Channel的close()方法头，添加额外说明：在当前通道发生I/O操作阻塞的任何线程都会受到AsynchronousCloseException异常。主要强调两点：
+
+                * 实现该接口的通道是可异步被关闭的
+                * 实现该接口的通道是可异步被中断的
+
+        3. 获取Channel方式
+
+            java.nio.channels包提供了两个方法从流中获取通道
+
+            方法|说明
+            --|--
+            WritableByteChannel newChannel(OutputStream outputStream)|根据指定的输出流返回一个可写字节通道
+            ReadableByteChannel newChannel(InputStream inputStream)|根据指定的输入流返回一个可读字节通道
+
+            几个I/O类被改造支持通道创建，比如
+            * java.io.RandomAccessFile声明一个FileChannel getChannel()
+            * java.net.Socket声明一个SocketChannel getChannel()
+
+            ```java
+            import java.io.IOException;
+            import java.nio.ByteBuffer;
+            import java.nio.channels.Channels;
+            import java.nio.channels.ReadableByteChannel;
+            import java.nio.channels.WritableByteChannel;
+
+            public class ChannelDemo {
+                public static void main(String[] args) {
+                    ReadableByteChannel src = Channels.newChannel(System.in);
+                    WritableByteChannel dest = Channels.newChannel(System.out);
+                    try {
+                        copy(src, dest); // or copyAlt(src, dest);
+                    } catch (IOException ioe) {
+                        System.err.println("I/O error: " + ioe.getMessage());
+                    } finally {
+                        try {
+                            src.close();
+                            dest.close();
+                        } catch (IOException ioe) {
+                            ioe.printStackTrace();
+                        }
+                    }
+                }
+
+                static void copy(ReadableByteChannel src, WritableByteChannel dest) throws IOException {
+                    ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+                    while (src.read(buffer) != -1) {
+                        buffer.flip();
+                        dest.write(buffer);
+                        buffer.compact();
+                    }
+                    buffer.flip();
+                    while (buffer.hasRemaining())
+                        dest.write(buffer);
+                }
+
+                static void copyAlt(ReadableByteChannel src, WritableByteChannel dest) throws IOException {
+                    ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+                    while (src.read(buffer) != -1) {
+                        buffer.flip();
+                        while (buffer.hasRemaining())
+                            dest.write(buffer);
+                        buffer.clear();
+                    }
+                }
+            }
+            ```
+
+    * Channel详情
+
 
 3. Selectors
 
