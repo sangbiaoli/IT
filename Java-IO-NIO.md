@@ -292,6 +292,157 @@
 
     * Channel详情
 
+        1. 散射/收集 IO
+
+            散射/收集 IO分别定义了两个接口
+            * **ScatteringByteChannel** : 继承接口ReadableByteChannel，并定义两个方法
+                * long read(ByteBuffer[] dsts)
+                * long read(ByteBuffer[] dsts, int offset, int length)
+            * **GatheringByteChannel** : 继承接口WritableByteChannel，并定义两个方法
+                * long write(ByteBuffer[] dsts)
+                * long write(ByteBuffer[] dsts, int offset, int length)
+
+            ```java
+            import java.io.FileInputStream;
+            import java.io.FileOutputStream;
+            import java.io.IOException;
+            import java.nio.ByteBuffer;
+            import java.nio.channels.Channels;
+            import java.nio.channels.GatheringByteChannel;
+            import java.nio.channels.ScatteringByteChannel;
+
+            public class GatterAndScatterChannelDemo {
+                public static void main(String[] args) throws IOException {
+                    ScatteringByteChannel src;
+                    FileInputStream fis = new FileInputStream("x.dat");
+                    src = (ScatteringByteChannel) Channels.newChannel(fis);
+                    ByteBuffer buffer1 = ByteBuffer.allocateDirect(5);
+                    ByteBuffer buffer2 = ByteBuffer.allocateDirect(3);
+                    ByteBuffer[] buffers = {buffer1, buffer2};
+                    src.read(buffers);
+                    buffer1.flip();
+                    while (buffer1.hasRemaining())
+                        System.out.println(buffer1.get());
+                    System.out.println();
+                    buffer2.flip();
+                    while (buffer2.hasRemaining())
+                        System.out.println(buffer2.get());
+                    buffer1.rewind();
+                    buffer2.rewind();
+                    GatheringByteChannel dest;
+                    FileOutputStream fos = new FileOutputStream("y.dat");
+                    dest = (GatheringByteChannel) Channels.newChannel(fos);
+                    buffers[0] = buffer2;
+                    buffers[1] = buffer1;
+                    dest.write(buffers);
+                }
+            }
+            ```
+        
+        2. 文件通道
+
+            文件通道是一种能够读，写，映射，操作文件的通道。可以通过以下方式获取文件通道
+            
+            * java.io.FileInputStream.getChannel()
+            * java.io.FileOutputStream.getChannel()
+            * java.io.RandomAccessFile.getChannel()
+
+            这个抽象类java.nio.channels.FileChannel描述了一个文件通道。该类继承AbstractInterruptibleChannel抽象类，因此可中断。另外，该类实现了接口SeekableByteChannel，GatheringByteChannel，ScatteringByteChannel，因此可以在基础文件上写入，读取，散射或收集I/O。
+
+            方法|说明
+            --|--
+            void force(boolean metadata)|所有对文件通道的更新都提交到对应的文件。metadata为true则更新文件metadata，否则不更新
+            long position()|返回这个文件通道的文件位置
+            FileChannel position(long newPosition)|设置这个文件通道的文件位置到newPosition
+            int read(ByteBuffer buffer)|从文件通道中读取字节到指定的buffer
+            int read(ByteBuffer dst, long position)|从文件通道中读取字节到指定的buffer，并从position位置开始
+            long size()|返回基础文件的大小(按字节算)
+            FileChannel truncate(long size)|将此通道的文件截断为给定的大小。size大于当前文件大小，丢弃文件新末尾之外的任何字节，否则文件不做改变，且position设置size
+            int write(ByteBuffer buffer)|从指定的buffer写入到文件通道
+            int write(ByteBuffer src, long position)|从指定的buffer写入到文件通道，并从position位置开始
+
+            ```java
+            import java.io.IOException;
+            import java.io.RandomAccessFile;
+            import java.nio.ByteBuffer;
+            import java.nio.channels.FileChannel;
+
+            public class FileChannelDemo {
+                public static void main(String[] args) throws IOException {
+                    RandomAccessFile raf = new RandomAccessFile("temp", "rw");
+                    FileChannel fc = raf.getChannel();
+                    long pos;
+                    System.out.println("Position = " + (pos = fc.position()));
+                    System.out.println("size: " + fc.size());
+                    String msg = "This is a test message.";
+                    ByteBuffer buffer = ByteBuffer.allocateDirect(msg.length() * 2);
+                    buffer.asCharBuffer().put(msg);
+                    fc.write(buffer);
+                    fc.force(true);
+                    System.out.println("position: " + fc.position());
+                    System.out.println("size: " + fc.size());
+                    buffer.clear();
+                    fc.position(pos);
+                    fc.read(buffer);
+                    buffer.flip();
+                    while (buffer.hasRemaining())
+                        System.out.print(buffer.getChar());
+                }
+            }
+            ```
+
+            **文件锁定**
+
+            在Java1.4后支持了锁定一个文件的所有或部分，文件锁分为独占锁和共享锁，读写锁的三种状态：
+
+            1. 当读写锁是写加锁状态时，在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
+
+            2. 当读写锁在读加锁状态时，所有试图以读模式对它进行加锁的线程都可以得到访问权，但是以写模式对它进行加锁的线程将会被阻塞
+            
+            3. 当读写锁在读模式的锁状态时，如果有另外的线程试图以写模式加锁，读写锁通常会阻塞随后的读模式锁的请求，这样可以避免读模式锁长期占用，而等待的写模式锁请求则长期阻塞。
+
+            **文件锁定注意要点**
+
+            * 如果操作系统不支持共享锁，那么对共享锁的请求将转为独占锁
+            * 锁是基于每个文件应用的。它们不是基于每个线程或每个通道应用的。运行在同一JVM上的两个线程通过不同的通道请求对同一文件区域的独占锁，并被授予访问权限。但是，如果这些线程运行在不同的jvm上，第二个线程就会阻塞。锁最终由操作系统的文件系统仲裁，而且几乎总是在进程级。它们不在线程级别仲裁。锁与文件关联，而不是与文件句柄或通道关联
+
+            获取独占锁和共享锁的方法
+
+            方法|说明
+            --|--
+            FileLock lock()|获取此文件通道的基础文件上的独占锁
+            FileLock lock(long position, long size, boolean shared)|从指定位置开始的一块区域，获取独占锁(shared为false)或共享锁(shared为true)
+            FileLock tryLock()|以非阻塞的方式尝试获取此文件通道的基础文件上的独占锁
+            FileLock tryLock(long position, long size, boolean shared)|从指定位置开始的一块区域，以非阻塞的方式尝试获取独占锁(shared为false)或共享锁(shared为true)
+
+            上面的四个方法都返回了一个FileLock的实例，该实例的方法如下
+            
+            方法|说明
+            --|--
+            FileChannel channel()|返回文件锁的文件通道
+            void close()|调用了release()方法来释放锁
+            boolean isShared()|判断文件锁是不是共享锁
+            boolean isValid()|只有文件锁被释放或关联的文件通道被关闭则返回true，否则返回false
+            void release()|释放锁
+
+            ```java
+            FileLock lock = fileChannel.lock();
+            try{
+            // interact with the file channel
+            }catch (IOException ioe){
+            // handle the exception
+            }finally{
+                lock.release();
+            }
+            ```
+
+            
+
+
+
+
+
+
 
 3. Selectors
 
