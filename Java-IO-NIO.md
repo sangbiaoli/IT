@@ -11,9 +11,11 @@
         * mark:一个初始标记下标，rewind()调用后，position会被重置，mark被置为-1。
 
         mark <= position <= limit <= capacity
-    
+
     * Buffer及子类
-        
+
+        ![](java/java-io-nio-buffer.png)
+
         方法|说明
         --|--
         Object array()|返回支持buffer的数组
@@ -199,6 +201,8 @@
 
     * 通道及其子类
 
+        ![](java/java-io-nio-channel.png)
+
         Java通过java.nio.channels和java.nio.channels.spi来提供通道的，所有的通道实现类都实现java.nio.channels.Channel接口，Channel接口声明了下面的方法
 
         1. 方法
@@ -230,7 +234,7 @@
 
         3. 获取Channel方式
 
-            java.nio.channels包提供了两个方法从流中获取通道
+            java.nio.channels包提供了两个方法从流中获取通道。
 
             方法|说明
             --|--
@@ -295,10 +299,10 @@
         1. 散射/收集 IO
 
             散射/收集 IO分别定义了两个接口
-            * **ScatteringByteChannel** : 继承接口ReadableByteChannel，并定义两个方法
+            * ScatteringByteChannel: 继承接口ReadableByteChannel，并定义两个方法
                 * long read(ByteBuffer[] dsts)
                 * long read(ByteBuffer[] dsts, int offset, int length)
-            * **GatheringByteChannel** : 继承接口WritableByteChannel，并定义两个方法
+            * GatheringByteChannel: 继承接口WritableByteChannel，并定义两个方法
                 * long write(ByteBuffer[] dsts)
                 * long write(ByteBuffer[] dsts, int offset, int length)
 
@@ -338,11 +342,11 @@
                 }
             }
             ```
-        
+
         2. 文件通道
 
             文件通道是一种能够读，写，映射，操作文件的通道。可以通过以下方式获取文件通道
-            
+
             * java.io.FileInputStream.getChannel()
             * java.io.FileOutputStream.getChannel()
             * java.io.RandomAccessFile.getChannel()
@@ -391,58 +395,393 @@
             }
             ```
 
-            **文件锁定**
+            1. 文件锁定
 
-            在Java1.4后支持了锁定一个文件的所有或部分，文件锁分为独占锁和共享锁，读写锁的三种状态：
+                在Java1.4后支持了锁定一个文件的所有或部分，文件锁分为独占锁和共享锁，读写锁的三种状态：
 
-            1. 当读写锁是写加锁状态时，在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
+                1. 当读写锁是写加锁状态时，在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
 
-            2. 当读写锁在读加锁状态时，所有试图以读模式对它进行加锁的线程都可以得到访问权，但是以写模式对它进行加锁的线程将会被阻塞
-            
-            3. 当读写锁在读模式的锁状态时，如果有另外的线程试图以写模式加锁，读写锁通常会阻塞随后的读模式锁的请求，这样可以避免读模式锁长期占用，而等待的写模式锁请求则长期阻塞。
+                2. 当读写锁在读加锁状态时，所有试图以读模式对它进行加锁的线程都可以得到访问权，但是以写模式对它进行加锁的线程将会被阻塞
 
-            **文件锁定注意要点**
+                3. 当读写锁在读模式的锁状态时，如果有另外的线程试图以写模式加锁，读写锁通常会阻塞随后的读模式锁的请求，这样可以避免读模式锁长期占用，而等待的写模式锁请求则长期阻塞。
 
-            * 如果操作系统不支持共享锁，那么对共享锁的请求将转为独占锁
-            * 锁是基于每个文件应用的。它们不是基于每个线程或每个通道应用的。运行在同一JVM上的两个线程通过不同的通道请求对同一文件区域的独占锁，并被授予访问权限。但是，如果这些线程运行在不同的jvm上，第二个线程就会阻塞。锁最终由操作系统的文件系统仲裁，而且几乎总是在进程级。它们不在线程级别仲裁。锁与文件关联，而不是与文件句柄或通道关联
+                **文件锁定注意要点**
 
-            获取独占锁和共享锁的方法
+                * 如果操作系统不支持共享锁，那么对共享锁的请求将转为独占锁
+                * 锁是基于每个文件应用的。它们不是基于每个线程或每个通道应用的。运行在同一JVM上的两个线程通过不同的通道请求对同一文件区域的独占锁，并被授予访问权限。但是，如果这些线程运行在不同的jvm上，第二个线程就会阻塞。锁最终由操作系统的文件系统仲裁，而且几乎总是在进程级。它们不在线程级别仲裁。锁与文件关联，而不是与文件句柄或通道关联
+
+                获取独占锁和共享锁的方法
+
+                方法|说明
+                --|--
+                FileLock lock()|获取此文件通道的基础文件上的独占锁
+                FileLock lock(long position, long size, boolean shared)|从指定位置开始的一块区域，获取独占锁(shared为false)或共享锁(shared为true)
+                FileLock tryLock()|以非阻塞的方式尝试获取此文件通道的基础文件上的独占锁
+                FileLock tryLock(long position, long size, boolean shared)|从指定位置开始的一块区域，以非阻塞的方式尝试获取独占锁(shared为false)或共享锁(shared为true)
+
+                上面的四个方法都返回了一个FileLock的实例，该实例的方法如下
+
+                方法|说明
+                --|--
+                FileChannel channel()|返回文件锁的文件通道
+                void close()|调用了release()方法来释放锁
+                boolean isShared()|判断文件锁是不是共享锁
+                boolean isValid()|只有文件锁被释放或关联的文件通道被关闭则返回true，否则返回false
+                void release()|释放锁
+
+                ```java
+                FileLock lock = fileChannel.lock();
+                try{
+                // interact with the file channel
+                }catch (IOException ioe){
+                // handle the exception
+                }finally{
+                    lock.release();
+                }
+                ```
+
+            2. 映射文件到内存
+
+                FileChannel声明了map()方法，该方法允许您在打开的文件的区域和java.nio.MappedByteBuffer之间创建虚拟内存映射。如下
+                *MappedByteBuffer map(FileChannel.MapMode mode, long position, long size)*
+
+                FileChannel.MapMode的枚举类型
+                * READ_ONLY:尝试修改buffer会抛出java.nio.ReadOnlyBufferException异常
+                * READ_WRITE:buffer做的修改会反映到文件中，但对于其他程序未必可见
+                * PRIVATE:对结果缓冲区所做的更改将不会传播到文件，并且对映射相同文件的其他程序也不可见。相反，更改将导致创建缓冲区中已修改部分的私有副本。当缓冲区被垃圾收集时，这些更改将丢失。
+
+                ```java
+                import java.io.IOException;
+                import java.io.RandomAccessFile;
+                import java.nio.MappedByteBuffer;
+                import java.nio.channels.FileChannel;
+
+                public class FileChannelMapDemo {
+                    public static void main(String[] args) throws IOException {
+                        if (args.length != 1) {
+                            System.out.println("usage: java ChannelDemo filespec");
+                            return;
+                        }
+                        RandomAccessFile raf = new RandomAccessFile(args[0], "rw");
+                        FileChannel fc = raf.getChannel();
+                        long size = fc.size();
+                        System.out.println("Size: " + size);
+                        MappedByteBuffer mbb = fc.map(FileChannel.MapMode.READ_WRITE, 0, size);
+                        while (mbb.remaining() > 0)
+                            System.out.print((char) mbb.get());
+                        System.out.println();
+                        System.out.println();
+                        for (int i = 0; i < mbb.limit() / 2; i++) {
+                            byte b1 = mbb.get(i);
+                            byte b2 = mbb.get(mbb.limit() - i - 1);
+                            mbb.put(i, b2);
+                            mbb.put(mbb.limit() - i - 1, b1);
+                        }
+                        mbb.flip();
+                        while (mbb.remaining() > 0)
+                            System.out.print((char) mbb.get());
+                        fc.close();
+                    }
+                }
+                ```
+
+            3. 通道之间传递字节
+
+                为了优化执行批量传输的常见实践，在FileChannel中添加了两种方法，以避免使用中间缓冲区:
+
+                * long transferFrom(ReadableByteChannel src, long position, long count):从指定可读字节通道传输字节到这个文件通道
+
+                * long transferTo(long position, long count,WritableByteChannel target):从这个文件通道传输字节到指定可写字节通道
+
+                ```java
+                import java.io.FileInputStream;
+                import java.io.IOException;
+                import java.nio.channels.Channels;
+                import java.nio.channels.FileChannel;
+                import java.nio.channels.WritableByteChannel;
+
+                public class FileChannelTransferDemo {
+                    public static void main(String[] args) {
+                        if (args.length != 1) {
+                            System.err.println("usage: java ChannelDemo filespec");
+                            return;
+                        }
+                        try (FileInputStream fis = new FileInputStream(args[0])) {
+                            FileChannel inChannel = fis.getChannel();
+                            WritableByteChannel outChannel = Channels.newChannel(System.out);
+                            inChannel.transferTo(0, inChannel.size(), outChannel);
+                        } catch (IOException ioe) {
+                            System.out.println("I/O error: " + ioe.getMessage());
+                        }
+                    }
+                }
+                ```
+
+        3. Socket通道
+
+            共有三个socket通道类：ServerSocketChannel，SocketChannel，DatagramChannel，其继承关系为
+
+            类名|抽象父类|接口类
+            --|--|--
+            ServerSocketChannel|AbstractSelectableChannel|NetworkChannel
+            SocketChannel|AbstractSelectableChannel|ByteChannel, ScatteringByteChannel, GatheringByteChannel, NetworkChannel
+            DatagramChannel|AbstractSelectableChannel|ByteChannel, ScatteringByteChannel, GatheringByteChannel, NetworkChannel
+
+            因此可以在基础文件上写入，读取，散射或收集I/O。
+
+            *ServerSocketChannel，SocketChannel，DatagramChannel都是线程安全的，而buffer是非线程安全。*
+
+            SelectableChannel定义了方法来阻塞或非阻塞
 
             方法|说明
-            --|--
-            FileLock lock()|获取此文件通道的基础文件上的独占锁
-            FileLock lock(long position, long size, boolean shared)|从指定位置开始的一块区域，获取独占锁(shared为false)或共享锁(shared为true)
-            FileLock tryLock()|以非阻塞的方式尝试获取此文件通道的基础文件上的独占锁
-            FileLock tryLock(long position, long size, boolean shared)|从指定位置开始的一块区域，以非阻塞的方式尝试获取独占锁(shared为false)或共享锁(shared为true)
+            SelectableChannel configureBlocking(boolean block)|设置可选择通道阻塞状态
+            boolean isBlocking()|判断可选择通道是否阻塞
+            Object blockingLock()|返回配置阻塞同步的对象
 
-            上面的四个方法都返回了一个FileLock的实例，该实例的方法如下
-            
-            方法|说明
-            --|--
-            FileChannel channel()|返回文件锁的文件通道
-            void close()|调用了release()方法来释放锁
-            boolean isShared()|判断文件锁是不是共享锁
-            boolean isValid()|只有文件锁被释放或关联的文件通道被关闭则返回true，否则返回false
-            void release()|释放锁
+            blockingLock()这个方法能让你阻止其他线程改变socket通道的阻塞状态
 
             ```java
-            FileLock lock = fileChannel.lock();
-            try{
-            // interact with the file channel
-            }catch (IOException ioe){
-            // handle the exception
-            }finally{
-                lock.release();
+            ServerSocketChannel ssc = ServerSocketChannel.open();
+            SocketChannel sc = null;
+            Object lock = ssc.blockingLock();
+            // Thread might block when obtaining the lock associated with
+            // the lock object.
+            synchronized (lock) {
+                // Current thread owns the lock. No other thread can
+                // change blocking mode.
+                // Obtaining server socket channel's current blocking mode.
+                boolean blocking = ssc.isBlocking();
+                // Set server socket channel to nonblocking.
+                ssc.configureBlocking(false);
+                // Obtain next connection, which is null when there is no
+                // connection.
+                sc = ssc.accept();
+                // Restore previous blocking mode.
+                ssc.configureBlocking(blocking);
             }
+            // The lock is released and some other thread may modify the
+            // server socket channel's blocking mode.
+            if (sc != null)
+                communicateWithSocket(sc);
             ```
 
-            
+            1. Server Socket通道
+
+                方法|说明
+                --|--
+                static ServerSocketChannel open()|尝试打开一个server-socket通道（初始化未绑定），在连接进来之前必须调用对等socket的bind()方法来绑定特定的地址
+                ServerSocket socket()|返回这个server socket通道关联的对等socket实例
+                SocketChannel accept()|接受与这个通道socket的连接
+
+                server socket通道在TCP/IP流协议中扮演着服务端。
+
+                ```java
+                import java.io.IOException;
+                import java.net.InetSocketAddress;
+                import java.nio.ByteBuffer;
+                import java.nio.channels.ServerSocketChannel;
+                import java.nio.channels.SocketChannel;
+
+                public class SocketServerChannelDemo {
+                    public static void main(String[] args) throws IOException {
+                        System.out.println("Starting server...");
+                        ServerSocketChannel ssc = ServerSocketChannel.open();
+                        ssc.socket().bind(new InetSocketAddress(9999));
+                        ssc.configureBlocking(false);
+                        String msg = "Local address: " + ssc.socket().getLocalSocketAddress();
+                        ByteBuffer buffer = ByteBuffer.wrap(msg.getBytes());
+                        while (true) {
+                            System.out.print(".");
+                            SocketChannel sc = ssc.accept();
+                            if (sc != null) {
+                                System.out.println();
+                                System.out.println("Received connection from " + sc.socket().getRemoteSocketAddress());
+                                buffer.rewind();
+                                sc.write(buffer);
+                                sc.close();
+                            } else
+                                try {
+                                    Thread.sleep(100);
+                                } catch (InterruptedException ie) {
+                                    assert false; // shouldn't happen
+                                }
+                        }
+                    }
+                }
+                ```
 
 
+            2. Socket通道
 
+                方法|说明
+                --|--
+                static SocketChannel open()|尝试打开一个socket通道
+                static SocketChannel open(InetSocketAddress remoteAddr)|尝试打开一个socket通道并连接到remoteAddr
+                Socket socket()|返回这个socket通道关联的对等socket实例
+                boolean connect(SocketAddress remoteAddr)|尝试连接这个socket通道上的socket对象到remoteAddr
+                boolean isConnectionPending()|当连接操作正在等待完成时，返回true;否则,返回false。
+                boolean finishConnect()|完成连接socket通道的过程
+                boolean isConnected()|如果通道socket是被打开或已经连接，返回true，否则，返回false。
 
+                server socket通道在TCP/IP流协议中扮演着客户端。
 
+                ```java
+                import java.io.IOException;
+                import java.net.InetSocketAddress;
+                import java.nio.ByteBuffer;
+                import java.nio.channels.SocketChannel;
 
+                public class SocketChannelDemo {
+                    public static void main(String[] args) {
+                        try {
+                            SocketChannel sc = SocketChannel.open();
+                            sc.configureBlocking(false);
+                            InetSocketAddress addr = new InetSocketAddress("localhost", 9999);
+                            sc.connect(addr);
+                            while (!sc.finishConnect())
+                                System.out.println("waiting to finish connection");
+                            ByteBuffer buffer = ByteBuffer.allocate(200);
+                            while (sc.read(buffer) >= 0) {
+                                buffer.flip();
+                                while (buffer.hasRemaining())
+                                    System.out.print((char) buffer.get());
+                                buffer.clear();
+                            }
+                            sc.close();
+                        } catch (IOException ioe) {
+                            System.err.println("I/O error: " + ioe.getMessage());
+                        }
+                    }
+                }
+                ```
+
+            3. Datagram通道
+
+                DatagramChannel为无连接的面向包的协议(如UDP/IP)建模。
+
+                方法|说明
+                --|--
+                static DatagramChannel open()|尝试打开数据包通道
+                DatagramSocket socket()|返回这个数据包通道关联的对等socket实例
+                boolean isConnected()|如果通道socket是被打开或已经连接，返回true，否则，返回false。
+                DatagramChannel disconnect()|断开与这个通道的socket的连接
+                SocketAddress receive(ByteBuffer buffer)|通过通道返回一个数据包
+                int send(ByteBuffer buffer, SocketAddress destAddr)|通过通道返送一个数据包
+
+                ```java
+                import java.io.IOException;
+                import java.net.InetSocketAddress;
+                import java.net.SocketAddress;
+                import java.nio.ByteBuffer;
+                import java.nio.channels.DatagramChannel;
+
+                public class DatagramChannelDemo {
+                    final static int PORT = 9999;
+
+                    public static void main(String[] args) throws IOException {
+                        System.out.println("server starting and listening on port " + PORT + " for incoming requests...");
+                        DatagramChannel dcServer = DatagramChannel.open();
+                        dcServer.socket().bind(new InetSocketAddress(PORT));
+                        ByteBuffer symbol = ByteBuffer.allocate(4);
+                        ByteBuffer payload = ByteBuffer.allocate(16);
+                        while (true) {
+                            payload.clear();
+                            symbol.clear();
+                            SocketAddress sa = dcServer.receive(symbol);
+                            if (sa == null)
+                                return;
+                            System.out.println("Received request from " + sa);
+                            String stockSymbol = new String(symbol.array(), 0, 4);
+                            System.out.println("Symbol: " + stockSymbol);
+                            if (stockSymbol.toUpperCase().equals("MSFT")) {
+                                payload.putFloat(0, 37.40f); // open share price
+                                payload.putFloat(4, 37.22f); // low share price
+                                payload.putFloat(8, 37.48f); // high share price
+                                payload.putFloat(12, 37.41f); // close share price
+                            } else {
+                                payload.putFloat(0, 0.0f);
+                                payload.putFloat(4, 0.0f);
+                                payload.putFloat(8, 0.0f);
+                                payload.putFloat(12, 0.0f);
+                            }
+                            dcServer.send(payload, sa);
+                        }
+                    }
+                }
+                ```
+
+        4. Pipe
+
+            java.nio.channels包下还包含了Pipe类，Pipe描述实现单向管道的一对通道，单向管道是在两个实体(如两个文件通道或两个套接字通道)之间单向传递数据的管道。管道类似于java.io.PipedInputStream和java.io.PipedOutputStream类。
+
+            方法|说明
+            static Pipe open()|打开一个新管道
+            SourceChannel source()|返回这个管道的来源通道
+            SinkChannel sink()|此方法返回管道的接收通道
+
+            **Pipes只能用于相同JVM内传输数据，不能用于不同JVM中和额外程序中传递数据。**
+
+            ```java
+            import java.io.IOException;
+            import java.nio.ByteBuffer;
+            import java.nio.channels.Pipe;
+            import java.nio.channels.ReadableByteChannel;
+            import java.nio.channels.WritableByteChannel;
+
+            public class PipeDemo {
+                final static int BUFSIZE = 10;
+                final static int LIMIT = 3;
+
+                public static void main(String[] args) throws IOException {
+                    final Pipe pipe = Pipe.open();
+                    Runnable senderTask = new Runnable() {
+                        @Override
+                        public void run() {
+                            WritableByteChannel src = pipe.sink();
+                            ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+                            for (int i = 0; i < LIMIT; i++) {
+                                buffer.clear();
+                                for (int j = 0; j < BUFSIZE; j++)
+                                    buffer.put((byte) (Math.random() * 256));
+                                buffer.flip();
+                                try {
+                                    while (src.write(buffer) > 0)
+                                        ;
+                                } catch (IOException ioe) {
+                                    System.err.println(ioe.getMessage());
+                                }
+                            }
+                            try {
+                                src.close();
+                            } catch (IOException ioe) {
+                                ioe.printStackTrace();
+                            }
+                        }
+                    };
+                    Runnable receiverTask = new Runnable() {
+                        @Override
+                        public void run() {
+                            ReadableByteChannel dst = pipe.source();
+                            ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+                            try {
+                                while (dst.read(buffer) >= 0) {
+                                    buffer.flip();
+                                    while (buffer.remaining() > 0)
+                                        System.out.println(buffer.get() & 255);
+                                    buffer.clear();
+                                }
+                            } catch (IOException ioe) {
+                                System.err.println(ioe.getMessage());
+                            }
+                        }
+                    };
+                    Thread sender = new Thread(senderTask);
+                    Thread receiver = new Thread(receiverTask);
+                    sender.start();
+                    receiver.start();
+                }
+            }
+            ```
 
 3. Selectors
 
