@@ -785,15 +785,164 @@
 
 3. Selectors
 
-   
+   非阻塞模式是执行准备就绪选择的基础，它将检查I/O流是否准备好执行写、读和其他操作所涉及的工作转移到操作系统，而不是在实际I/O中执行这些操作。
 
-4. Regular Expression
+    1. Selector认识
 
-5. Charsets
+        ![](java/java-io-nio-seletor.png)
+        
+        一个selector是由抽象类java.nio.channels.Selector创建的一个对象。selector维护一个通道集合，并检查它们是否准备好执行读、写和其他操作。通过select()方法把检查工作代理到操作系统。
 
-6. Formatter
+        Selector总是和selectable通道一起使用的，这些通道继承于抽象类**java.nio.channels.SelectableChannel**，比如
+        * java.nio.channels.SocketChannel
+        * java.nio.channels.ServerSocketChannel  
+        * java.nio.channels.DatagramChannel 
+        * java.nio.channels.Pipe.SinkChannel
+        * java.nio.channels.Pipe.SourceChannel  
 
-    
+        ```java
+        Selector selector = Selector.open();
+        ```
+
+        创建selector后，selectable通道可用以下方法注册到通道中
+        
+        
+        * SelectionKey register(Selector sel, int ops) :以ops方式注册到sel中
+        * SelectionKey register(Selector sel, int ops, Object att) :以ops方式注册到sel中，att是一个任意的对象，可以方便辨认一个通道或添加额外的信息到通道
+
+        ops的枚举说明
+        * OP_ACCEPT: socket接入操作
+        * OP_CONNECT: socket连接操作
+        * OP_READ: 读操作
+        * OP_WRITE: 写操作
+
+    2. Selector执行选择
+
+        * 典型用法
+
+            通道需要设置成非阻塞模式，应用的典型用法是进入一个死循环，并完成以下的操作
+            
+            1. 执行选择操作
+            2. 通过迭代器获取selected keys
+            3. 迭代keys，并执行通道操作
+
+
+        * Selector的select方法
+                
+           选择器的操作是通过调用Selector的select()方法
+            * select() :执行一个阻塞的选择操作，满足某个条件才会返回，无论哪个先至
+                * 至少一个通道被选择
+                * wakeup()方法被调用
+                * 当前线程被中断
+            * select(long timeout) :跟select()一样，多了一个超时条件。
+            * selectNow() :　是select()的非阻塞版本。
+
+        * 通道的动作
+
+            SelectionKey的通道动作判断
+            
+            * boolean isAcceptable()：通道是否接受一个连接
+            * boolean isConnectable()：通道是否完成连接
+            * boolean isReadable()：通道是否可读
+            * boolean isWritable()：通道是否可写
+
+        ```java
+        import java.io.IOException;
+        import java.net.InetSocketAddress;
+        import java.nio.ByteBuffer;
+        import java.nio.channels.SocketChannel;
+        import java.util.Date;
+
+        public class SelectorClient {
+            final static int DEFAULT_PORT = 9999;
+
+            static ByteBuffer bb = ByteBuffer.allocateDirect(8);
+
+            public static void main(String[] args) {
+                int port = DEFAULT_PORT;
+                if (args.length > 0)
+                    port = Integer.parseInt(args[0]);
+
+                try {
+                    SocketChannel sc = SocketChannel.open();
+                    InetSocketAddress addr = new InetSocketAddress("localhost", port);
+                    sc.connect(addr);
+
+                    long time = 0;
+                    while (sc.read(bb) != -1) {
+                        bb.flip();
+                        while (bb.hasRemaining()) {
+                            time <<= 8;
+                            time |= bb.get() & 255;
+                        }
+                        bb.clear();
+                    }
+                    System.out.println(new Date(time));
+                    sc.close();
+                } catch (IOException ioe) {
+                    System.err.println("I/O error: " + ioe.getMessage());
+                }
+            }
+        }
+        ```
+
+        ```java
+        import java.io.IOException;
+        import java.net.InetSocketAddress;
+        import java.net.ServerSocket;
+        import java.nio.ByteBuffer;
+        import java.nio.channels.SelectionKey;
+        import java.nio.channels.Selector;
+        import java.nio.channels.ServerSocketChannel;
+        import java.nio.channels.SocketChannel;
+        import java.util.Iterator;
+
+        public class SelectorServer {
+            final static int DEFAULT_PORT = 9999;
+
+            static ByteBuffer bb = ByteBuffer.allocateDirect(8);
+
+            public static void main(String[] args) throws IOException {
+                int port = DEFAULT_PORT;
+                if (args.length > 0)
+                    port = Integer.parseInt(args[0]);
+                System.out.println("Server starting ... listening on port " + port);
+
+                ServerSocketChannel ssc = ServerSocketChannel.open();
+                ServerSocket ss = ssc.socket();
+                ss.bind(new InetSocketAddress(port));
+                ssc.configureBlocking(false);
+
+                Selector s = Selector.open();
+                ssc.register(s, SelectionKey.OP_ACCEPT);
+
+                while (true) {
+                    int n = s.select();
+                    if (n == 0)
+                        continue;
+                    Iterator<?> it = s.selectedKeys().iterator();
+                    while (it.hasNext()) {
+                        SelectionKey key = (SelectionKey) it.next();
+                        if (key.isAcceptable()) {
+                            SocketChannel sc;
+                            sc = ((ServerSocketChannel) key.channel()).accept();
+                            if (sc == null)
+                                continue;
+                            System.out.println("Receiving connection");
+                            bb.clear();
+                            bb.putLong(System.currentTimeMillis());
+                            bb.flip();
+                            System.out.println("Writing current time");
+                            while (bb.hasRemaining())
+                                sc.write(bb);
+                            sc.close();
+                        }
+                        it.remove();
+                    }
+                }
+            }
+        }
+        ```
 
 原文:book/Java I-O, NIO and NIO.2.pdf
 https://blog.csdn.net/will_awoke/article/details/25803725
