@@ -2,17 +2,151 @@
 
 线程池是可以控制线程创建、释放，并通过某种策略尝试复用线程去执行任务的一种管理框架，从而实现线程资源与任务之间的一种平衡。
 
- 以下分析基于 JDK1.7
+线程池的类架构图如下
 
- 以下是本文的目录大纲：
+![](java/java-concurrent-executor.png)
 
-一、线程池架构
+1. **Executor**
 
-    1、Executor接口
+    Executor，这个对象执行已提交的可执行任务。这个接口提供了一种将任务提交与每个任务如何运行的机制(包括线程使用、调度等细节)分离的方法。
 
-    2、ExecutorService接口
+    Executor接口只有一个方法
+    * void execute(Runnable command):在未来某个时间执行给定的任务，这个命令可以在一个新线程，线程池的线程等执行。
 
-    3、ScheduledExecutorService接口
+    * 一个Executor通常直接使用而不明确的创建线程，比如
+
+        ```java
+        Executor executor = an Executor;
+        executor.execute(new RunnableTask1());
+        executor.execute(new RunnableTask2());
+        ```
+
+    * Executor任务可以不是严格异步的，比如executor可以在调用者线程直接执行提交的任务
+
+        ```java
+       class DirectExecutor implements Executor {
+            public void execute(Runnable r) {
+                r.run();
+            }
+        }
+        ```
+
+    * 更常用的是，任务在一些线程执行而不是调用者的线程
+
+        ```java
+        class ThreadPerTaskExecutor implements Executor {
+            public void execute(Runnable r) {
+                new Thread(r).start();
+            }
+        }
+        ```
+
+    * 许多Executor实现对任务的调度方式和时间施加了某种限制。执行器将任务的提交序列化到第二个执行器，说明了复合执行器。
+
+        ```java
+        public class SerialExecutor implements Executor {
+            final Queue<Runnable> tasks = new ArrayDeque<Runnable>();
+            final Executor executor;
+            Runnable active;
+
+            SerialExecutor(Executor executor) {
+                this.executor = executor;
+            }
+
+            public synchronized void execute(final Runnable r) {
+                tasks.offer(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        try {
+                            r.run();
+                        } finally {
+                            scheduleNext();
+                        }
+
+                    }
+                });
+                if (active == null) {
+                    scheduleNext();
+                }
+            }
+
+            private void scheduleNext() {
+                active = tasks.poll();
+                if ((active = tasks.poll()) != null) {
+                    executor.execute(active);
+                }
+            }
+        }
+        ```
+
+2. **ExecutorService**
+
+    ExecutorService，提供方法管理终端且能产生一个Future来追踪一个或多个异步任务。
+
+    ExecutorService可以被关闭，这样会引起拒绝新任务。共有两个方法提供关闭。
+
+    * shutdown:允许之前已经提交的任务在终止之前继续执行
+    * shutdownNow:阻止等待的任务启动并且尝试停止正在运行的任务
+
+    方法submit扩展了基本方法Executor.execute(Runnable)，方法创建并返回一个可用于取消执行和/或等待完成的Future。
+
+    方法invokeAny和invokeAll执行最常用的批量执行形式，执行一组任务，然后等待至少一个或全部任务完成。
+
+    ```java
+    public class ExecutorServiceDemo {
+        class NetworkService implements Runnable{
+            private final ServerSocket serverSocket;
+            private final ExecutorService pool;
+
+            public NetworkService(int port, int poolSize) throws IOException {
+                serverSocket = new ServerSocket(port);
+                pool = Executors.newFixedThreadPool(poolSize);
+            }
+
+
+            @Override
+            public void run() {
+                try {
+                    for (;;) {
+                        pool.execute(new Handler(serverSocket.accept()));
+                    }
+                } catch (Exception e) {
+                    pool.shutdown();
+                }
+            }
+        }
+
+        public class Handler implements Runnable {
+            private final Socket socket;
+            public Handler(Socket socket) {
+                this.socket = socket;
+            }
+
+            @Override
+            public void run() {
+                //reed and service request on socket
+            }
+        }
+    }
+    ```
+
+    方法|说明
+    --|--
+    void shutdown()|启动有序关闭，在此过程中执行先前提交的任务，但不接受任何新任务。如果已经关闭，调用不会产生额外的效果。
+    List<Runnable> shutdownNow()|尝试停止所有正在积极执行的任务，停止处理等待的任务，并返回等待执行的任务列表。
+    boolean isShutdown()|如果executor已经被关闭则返回true
+    boolean isTerminated()|如果关闭后所有任务都已完成，则返回true。注意，除非首先调用shutdown或shutdown now，否则isTerminated永远不会为真。
+    boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException|阻塞，直到所有任务都在关机请求之后执行完毕，或者超时发生，或者当前线程被中断(以先发生的情况为准)。
+    <T> Future<T> submit(Callable<T> task)|提交一个有返回值的任务以执行，并返回一个表示该任务未决结果的Future。
+    <T> Future<T> submit(Runnable task, T result)|提交要执行的可运行任务，并返回表示该任务的Future。将来的get方法将在成功完成后返回给定的结果。
+    Future<?> submit(Runnable task)|提交要执行的可运行任务，并返回表示该任务的Future。将来的get方法将在成功完成后返回null。
+    <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException|执行给定的多个任务，在所有任务完成后返回一个Future列表，持有执行状态和返回结果
+    <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,long timeout, TimeUnit unit) throws InterruptedException|执行给定的多个任务，在所有任务完成后或超时时返回一个Future列表，持有执行状态和返回结果
+    <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException|执行给定的任务，返回已成功完成的任务的结果(即，没有抛出异常)，如果有的话。在正常或异常返回时，未完成的任务将被取消
+    <T> T invokeAny(Collection<? extends Callable<T>> tasks,long timeout, TimeUnit unit)|执行给定的任务，返回已成功完成的任务的结果(即，而不抛出异常)，如果在给定超时之前有任何异常。
+
+3. **ScheduledExecutorService**
 
 二、ThreadPoolExecutor
 
