@@ -16,31 +16,42 @@
     V get()|如果需要，等待计算完成，然后检索其结果
     V get(long timeout, TimeUnit unit)|如果需要，则在给定的时间内等待计算完成，如果可用，则检索其结果。
 
-    1. **ScheduledFuture**
+    1. <span id="ScheduledFuture">**ScheduledFuture**</span>
 
         ScheduledFuture，延迟产生结果的动作可以被取消，通常，调度的Future是使用ScheduledExecutorService调度任务的结果。
 
-        1. **RunnableScheduledFuture**
+        >此接口同时继承了接口[Delay](#Delay)。
+
+        1. <span id="RunnableScheduledFuture">**RunnableScheduledFuture**</span>
 
             一个可执行的ScheduledFuture，run方法的成功执行将导致Future的完成，并允许访问其结果。
+
+            >此接口同时继承了接口[RunnableFuture](#RunnableFuture)。
 
             方法|说明
             --|--
             boolean isPeriodic()|如果此任务是周期性的，则返回true。一个周期性的任务可能会根据某个时间表重新运行。非周期性任务只能执行一次。
 
-    2. **RunnableFuture**
+    2. <span id="RunnableFuture">**RunnableFuture**</span>
 
         一个可执行的Future，run方法的成功执行将导致Future的完成，并允许访问其结果。
+        
+        >此接口同时继承了接口[Runnable](#Runnable)。
 
         方法|说明
         --|--
         void run()|将这个future设置为其计算结果，除非它已被取消。
 
-        1. FutureTask
+        1. [RunnableScheduledFuture](#RunnableScheduledFuture)
+
+        2. <span id="FutureTask">FutureTask</span>
 
             一个可取消的异步计算任务，提供了一个基本的Future的实现，可以启动或取消任务，如果任务完成可以取回结果。只有当任务完成才能取回结果，在完成前调用get方法会阻塞，一旦完成，任务就不能重新开始或取消除非任务本身调用runAndReset。
 
             FutureTask可以用来包装一个可调用的或可运行的对象。因为FutureTask实现Runnable，所以可以将FutureTask提交给Executor执行。
+
+            >此类同时继承了接口[Callable](#Callable)。
+
 
             方法|说明
             --|--
@@ -132,11 +143,10 @@
             }
             ```
 
-    2. *ForkJoinTask*
+    3. *ForkJoinTask*
 
 
-
-2. **Delayed**
+2. <span id="Delay">**Delayed**</span>
 
     Delayed，一种混合风格的接口，用于标记在给定延迟之后应该执行的对象。
     此接口的实现必须定义一个compareTo方法，该方法提供与其getDelay方法一致的顺序。
@@ -145,16 +155,18 @@
     --|--
     long getDelay(TimeUnit unit)|在给定的时间单位内返回与此对象关联的剩余延迟。
 
+    1. [ScheduledFuture](#ScheduledFuture)
 
-3. **Runnable**
+
+3. <span id="Runnable">**Runnable**<span id="Runnable">
 
     Runnable，应该由其实例打算由线程执行的任何类实现，定义了一个方法。
     
     方法|说明
     --|--
     void run()|当一个对象实现接口Runnable被用来创建一个线程时，启动线程会导致对象的run方法在单独的执行线程中被调用。
-
-    1. Thread
+    1. [RunnableFuture](#RunnableFuture)
+    2. Thread
 
         Thread，线程是程序中执行的线程。java虚拟机允许应用程序同时运行多个执行线程。
         
@@ -218,8 +230,9 @@
         Thread(Runnable target, AccessControlContext acc)|创建一个继承给定AccessControlContext的新线程。这不是一个公共构造函数。
 
 
+    3. [ThreadPoolExecutor](#Java-并发编程-线程池.md)
 
-4. **Callable**
+4. <span id="Callable">**Callable**</span>
 
     Callable，一个任务返回结果且可能抛出异常，实现类都要实现一个方法call。Callable类似于java.lang.Runnable，因为它们都是为可能由另一个线程执行实例的类设计的。但是，Runnable不会返回结果，也不会抛出已检查的异常。
 
@@ -227,7 +240,8 @@
     --|--
     V call()|计算一个结果，如果不能够则抛出异常
 
-    1. RunnableAdapter
+    1. [FutureTask](#FutureTask)
+    2. RunnableAdapter
 
         RunnableAdapter属于Executors的内部类，是runnable转为callable的适配器
 
