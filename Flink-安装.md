@@ -1,10 +1,18 @@
 ## Flink安装
 
+环境说明
+
+虚拟机：CentOS7 64bit
+
+先给出一个总体设计图
+
+![](flink/flink-install-archive.png)
+
 1. 下载并启动Flink
 
     1. 安装环境
 
-        Flink可以安装在Linux，Mac OS X和Windows，当前所用系统为CentOS7(64bit)。
+        Flink可以安装在Linux，Mac OS X和Windows
         
         为了能够启动Flink，主要安装Java 8.x以上版本的jdk，可以通过命令查看jdk版本。
         
@@ -20,15 +28,31 @@
         Java HotSpot(TM) 64-Bit Server VM (build 25.111-b14, mixed mode)
         ```
 
-    2. 下载并编译
+    2. 安装
 
-        ```bash
-        git clone https://github.com/apache/flink.git
-        $ cd flink
-        $ mvn clean package -DskipTests # 这个执行将要花费10min
-        $ cd build-target               # Flink所安装的位置
-        ```
+        安装方式有两种：一种从github上下载并编译，花费时间较长，但是可以更新git源码，重新编译；另一种直接下载bin包
+        
+        * github下载并编译
 
+            ```bash
+            git clone https://github.com/apache/flink.git
+            $ cd flink
+            $ mvn clean package -DskipTests # 这个执行将要花费10min，其实远不止这个时间，要看网速以及机器性能，编译过程maven要下载好多jar包，共需要编译出152个目标jar
+            $ cd build-target               # Flink所安装的位置
+            ```
+
+        * 下载bin包并解压
+
+            访问地址：https://archive.apache.org/dist/flink/，
+            看到不同版本的flink,找到flink-*-bin-hadoop*-scala_*.tgz这种文件，并下载。
+
+            ```bash
+            wget https://archive.apache.org/dist/flink/flink-1.7.2/flink-1.7.2-bin-hadoop24-scala_2.11.tgz #下载文件
+
+            tar xzf flink-1.7.2-bin-hadoop24-scala_2.11.tgz #解压文件
+
+            cd flink-1.7.2
+            ```
     3. 启动一个本地的Flink Cluster
 
         ```bash
@@ -37,7 +61,7 @@
 
         访问地址：http://localhost:8081/，正常的话可以看到界面，如图
 
-        ![](flink/flink-install-visit.png)
+        ![](flink/flink-install-jobmanager-1.png)
 
         通过查看log目录下的日志验证系统正在运行
 
@@ -106,24 +130,25 @@
         public class SocketWindowWordCount {
 
             public static void main(String[] args) throws Exception {
-
-                //连接的端口
                 final int port;
+                final String hostname;
                 try {
-                    final ParameterTool params = ParameterTool.fromArgs(args);
+                    ParameterTool params = ParameterTool.fromArgs(args);
+                    hostname = params.has("hostname") ? params.get("hostname") : "localhost";
                     port = params.getInt("port");
                 } catch (Exception e) {
-                    System.err.println("No port specified. Please run 'SocketWindowWordCount --port <port>'");
+                    System.err.println("No port specified. Please run 'SocketWindowWordCount --hostname <hostname> --port <port>', where hostname (localhost by default) and port is the address of the text server");
+                    System.err.println("To start a simple text server, run 'netcat -l <port>' and type the input text into the command line");
                     return;
                 }
-
-                // 获取执行环境
+                
+                // get the execution environment
                 final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-                // 通过连接到socket获取输入数据
-                DataStream<String> text = env.socketTextStream("localhost", port, "\n");
+                // get input data by connecting to the socket
+                DataStream<String> text = env.socketTextStream(hostname, port, "\n");
 
-                //解析数据，对数据进行分组、打开窗口并聚合计数
+                // parse the data, group it, window it, and aggregate the counts
                 DataStream<WordWithCount> windowCounts = text.flatMap(new FlatMapFunction<String, WordWithCount>() {
                     @Override
                     public void flatMap(String value, Collector<WordWithCount> out) throws Exception {
@@ -138,19 +163,20 @@
                     }
                 });
 
-                //使用单个线程而不是并行打印结果
+                // print the results with a single thread, rather than in parallel
                 windowCounts.print().setParallelism(1);
 
                 env.execute("Socket Window WordCount");
             }
 
-            //WordWithCount的数据类型
+            // Data type for words with count
             public static class WordWithCount {
 
                 public String word;
                 public long count;
 
-                public WordWithCount() {}
+                public WordWithCount() {
+                }
 
                 public WordWithCount(String word, long count) {
                     this.word = word;
@@ -166,5 +192,55 @@
         ```
     
 
+3. 运行例子
+
+    这个Flink应用程序。它将从套接字中读取文本，并每5秒打印前5秒内每个不同单词出现的次数，即处理时间的滚动窗口，只要单词是浮动的。
+    
+    1. 使用netcat启动一个本地服务
+
+        ```bash
+        $ nc -l 9000
+        ```
+        
+    2. 提交Flink程序
+
+        ```bash
+        cd /usr/local/src/flink-1.7.2       #flink所在目录
+        
+        ./bin/flink run examples/streaming/SocketWindowWordCount.jar --port 9000        #启动9000端口
+        ```
+
+        这个程序连接到socket并等待输入，可以查看web页面来验证job运行如图
+
+        ![](flink/flink-install-jobmanager-2.png)
+
+        ![](flink/flink-install-jobmanager-3.png)
+
+        * 单词以5秒的时间窗口(处理时间、翻转窗口)计算，并打印到stdout。监控TaskManager的输出文件，用nc写一些文本(输入按下后逐行发送到Flink):
+
+            ```
+            lorem ipsum
+            ipsum ipsum ipsum
+            bye
+            ```
+
+        * .out文件将在每个时间窗口的末尾打印计数，只要单词是浮动的，例如:
+
+            ```
+            $ tail -f log/flink-*-taskexecutor-*.out
+            lorem : 1
+            bye : 1
+            ipsum : 4
+            ```
+        
+        * 如果要停止Flink，执行命令
+
+            ```bash
+            $ ./bin/stop-cluster.sh
+
+            ```
+
+    
 
 原文：https://ci.apache.org/projects/flink/flink-docs-master/tutorials/local_setup.html
+https://ci.apache.org/projects/flink/flink-docs-release-1.3/quickstart/setup_quickstart.html#setup-download-and-start-flink
