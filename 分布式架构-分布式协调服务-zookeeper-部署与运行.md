@@ -33,8 +33,7 @@
 1. zookeeper server启动及停用
 
     ```bash
-    [root@localhost /]# cd /usr/local/src/zookeeper-3.4.10/conf
-
+    [root@localhost /]# cd /usr/local/src/zookeeper-3.4.10
     [root@localhost zookeeper-3.4.10]# ./bin/zkServer.sh start
     [root@localhost zookeeper-3.4.10]# ./bin/zkServer.sh stop
     ```
@@ -44,7 +43,7 @@
     1. 连接和退出客户端
 
         ```bash
-        [root@localhost /]# cd /usr/local/src/zookeeper-3.4.10/conf
+        [root@localhost /]# cd /usr/local/src/zookeeper-3.4.10
         [root@localhost zookeeper-3.4.10]# ./bin/zkCli.sh 
         [zookeeper]
         [zk: localhost:2181(CONNECTED) 3] quit #退出
