@@ -16,18 +16,31 @@
     cd kafka_2.12-2.2.0
     ```
 
+    修改配置
+    /config/server.properties
+    
+    ```
+    advertised.listeners=PLAINTEXT://192.168.18.131:9092
+    ```
+
+    192.168.18.131为本机地址，这样其他主机可以访问Kafka，比如生产消息，消费消息
+
 2. 启动服务端
 
     Kafka使用zookeeper，因此在启动Kafka之前，要先启动zookeeper
 
     ```bash
-    bin/zookeeper-server-start.sh config/zookeeper.properties
+    bin/zookeeper-server-start.sh config/zookeeper.properties &
+
+    netstat -nlp|grep :2181
     ```
 
     现在启动kafka
 
     ```bash
-    bin/kafka-server-start.sh config/server.properties
+    bin/kafka-server-start.sh config/server.properties &
+
+    netstat -nlp|grep :9092
     ```
 
 3. 创建一个主题
