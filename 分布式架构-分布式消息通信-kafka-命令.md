@@ -5,7 +5,7 @@ kafka的bin目录下有常用的脚本，下面对这些脚本解释和使用
 1. kafka-topics.sh
 
     * --alter : 更改主题的分区数、复制分配
-    * --bootstrap-server <String: server to connect to> : 要连接的Kafka服务器
+    * --bootstrap-server <String: server to connect to> : 要连接的broker
     * --command-config <String: command config property file> : 包含配置属性的文件传递给Admin客户端
     * --config <String: name=value> : 正在创建或更改的主题的配置覆盖
     * --create  :创建新主题              
@@ -90,6 +90,33 @@ kafka的bin目录下有常用的脚本，下面对这些脚本解释和使用
         This is another message
         ^C
         ```
+
+3. kafka-console-consumer.sh       
+
+    * --bootstrap-server <String: server toconnect to>: 要连接的broker                                                                      
+    * --consumer-property <String: consumer_prop>：传递用户定义的属性，格式为key=value                    
+    * --formatter <String: class> ：用来格式化kafka消息的类名，(default: kafka.tools.DefaultMessageFormatter)             
+    * --from-beginning : 如果使用者还没有建立要使用的偏移量，则从日志中出现的最早消息开始，而不是从最新消息开始。                         
+    * --group <String: consumer group id> :消费者的group id。
+    * --help  ：打印帮助文档       
+    * --isolation-level <String>：隔离级别，设置read_committed则过滤掉还没提交的事务性消息，设置read_uncommittedto则读取所有消息(default:read_uncommitted)
+    * --key-deserializer <String: deserializer for key> :反序列化key                                                           
+    * --max-messages <Integer: num_messages> ：消费退出前的最大消息数，如果没设置，则消费会一直继续，等待。                  
+    * --partition <Integer: partition> :从哪个partition开始消费    
+    * --timeout-ms <Integer: timeout_ms> ：如果设置了，在固定的周期之内没有可消费的消息，则退出                
+    * --topic <String: topic> ：消费的主题                       
+    * --whitelist <String: whitelist> ：正则表达式，指定要包含供使用主题的白名单。   
+
+    1. 接收消息
+
+        从开始读取主题为test的消息，并标准输出，如果没有按下退出键，则一直等待消息
+
+        ```bash
+        bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --from-beginning
+        This is a message
+        This is another message
+        ^C
+        ```   
 
 原文：http://kafka.apache.org/quickstart
 https://blog.csdn.net/qq_29116427/article/details/80202392
