@@ -20,7 +20,8 @@
     /config/server.properties
     
     ```
-    advertised.listeners=PLAINTEXT://192.168.18.131:9092
+    listeners=PLAINTEXT://:9092     #socket监听端口
+    advertised.listeners=PLAINTEXT://192.168.18.131:9092  #启动端口提供给provider和consumer
     ```
 
     192.168.18.131为本机地址，这样其他主机可以访问Kafka，比如生产消息，消费消息
@@ -42,6 +43,35 @@
 
     netstat -nlp|grep :9092
     ```
+
+
+    启动脚本
+    
+    **startBroker0.sh**
+
+    ```bash
+    #bash
+    cd /usr/local/src/kafka_2.12-2.2.0/
+    bin/kafka-server-start.sh ./config/server2.properties &
+    ```
+
+    **startZookeeper.sh**
+    ```bash
+    #bash
+    cd /usr/local/src/kafka_2.12-2.2.0/
+    bin/zookeeper-server-start.sh ./config/zookeeper.properties &
+    ```
+
+    配置脚本可执行
+
+    ```bash
+    chmod a+x startBroker0.sh
+    chmod a+x startZookeeper.sh
+    ```
+
+
+    **注意**
+    kafka的broker，topic节点会注册到zookeeper上的，如果停止原来的zookeeper并启动另一个zookeeper，新起的这个zookeeper是看不到topic的。
 
 3. 创建一个主题
 
@@ -97,12 +127,14 @@
         ```
         config/server-1.properties:
             broker.id=1
-            listeners=PLAINTEXT://:9093
+            listeners=PLAINTEXT://:9193
+            advertised.listeners=PLAINTEXT://192.168.18.131:9193
             log.dirs=/tmp/kafka-logs-1
         
         config/server-2.properties:
             broker.id=2
-            listeners=PLAINTEXT://:9094
+            listeners=PLAINTEXT://:9194
+            advertised.listeners=PLAINTEXT://192.168.18.131:9194
             log.dirs=/tmp/kafka-logs-2
         ```
 
