@@ -20,7 +20,7 @@
     /config/server.properties
     
     ```
-    listeners=PLAINTEXT://:9092     #socket监听端口
+    listeners=PLAINTEXT://:9092     #socket监听端口，就按这样的格式，不要加localhost
     advertised.listeners=PLAINTEXT://192.168.18.131:9092  #启动端口提供给provider和consumer
     ```
 
@@ -101,14 +101,14 @@
         ```
         config/server-1.properties:
             broker.id=1
-            listeners=PLAINTEXT://:9193
-            advertised.listeners=PLAINTEXT://192.168.18.131:9193
+            listeners=PLAINTEXT://:9095
+            advertised.listeners=PLAINTEXT://192.168.18.131:9095  #启动端口提供给provider和consumer
             log.dirs=/tmp/kafka-logs-1
         
         config/server-2.properties:
             broker.id=2
-            listeners=PLAINTEXT://:9194
-            advertised.listeners=PLAINTEXT://192.168.18.131:9194
+            listeners=PLAINTEXT://:9096
+            advertised.listeners=PLAINTEXT://192.168.18.131:9096  #启动端口提供给provider和consumer
             log.dirs=/tmp/kafka-logs-2
         ```
 
@@ -126,16 +126,16 @@
     4. 现在创建一个复制因子为3的新主题
 
         ```bash
-        bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 3 --partitions 1 --topic my-replicated-topic
+        bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 3 --partitions 1 --topic my
         ```
 
     5. 查看主题的描述
 
         ```bash
-        bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic my-replicated-topic
+        bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic my
         
-        Topic:my-replicated-topic       PartitionCount:1        ReplicationFactor:3     Configs:segment.bytes=1073741824
-        Topic: my-replicated-topic      Partition: 0    Leader: 0       Replicas: 0,2,1 Isr: 0,1,2
+        Topic:my       PartitionCount:1        ReplicationFactor:3     Configs:segment.bytes=1073741824
+        Topic: my      Partition: 0    Leader: 1       Replicas: 0,2,1 Isr: 0,1,2
         ```
 
         * leader是负责给定分区的所有读写的节点。每个节点都是分区中随机选择的一部分的领导者。
@@ -145,46 +145,45 @@
     6. 生产一些消息
 
         ```bash
-        bin/kafka-console-producer.sh --broker-list localhost:9092 --topic my-replicated-topic
-        my test message 1
+        bin/kafka-console-producer.sh --broker-list localhost:9092 --topic my
+        my test message 
         my test message 2
+        my test message 3
+        my test message 4
         ^C
         ```
 
     7. 测试容错性
 
-        如上第5步，主题my-replicated-topic的Leader节点为broker0，现在把它的进程杀死
+        如上第5步，主题my的Leader节点为broker1，现在停止该broker
 
         ```bash
-        netstat -nlp | grep 9092
+        netstat -nlp | grep 9095
 
         tcp6       0      0 :::9092                 :::*                    LISTEN      29195/java
 
         kill -9 29195
         ```
 
-        此时再来查看，发现主题my-replicated-topic的Leader节点更新为broker2。
+        此时再来查看，发现主题my的Leader节点更新为broker2。
 
         ```bash
-        bin/kafka-topics.sh --describe --bootstrap-server localhost:9193 --topic my-replicated-topic
+        bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic my
 
-        Topic:my-replicated-topic       PartitionCount:1        ReplicationFactor:3     Configs:segment.bytes=1073741824
-        Topic: my-replicated-topic      Partition: 0    Leader: 2       Replicas: 0,2,1 Isr: 2,1
+        Topic:my        PartitionCount:1        ReplicationFactor:3     Configs:segment.bytes=1073741824
+        Topic: my       Partition: 0    Leader: 2       Replicas: 1,2,0 Isr: 2,0
         ```
 
         尝试消费信息
 
         ```bash
-        bin/kafka-console-consumer.sh --bootstrap-server localhost:9193 --from-beginning --topic my-replicated-topic
+        bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic my
         
-        ##实际测试没有办法消费，不知哪里出错了
-        my test message 1
+        my test message 
         my test message 2
+        my test message 3
+        my test message 4
         ```
-
-
-        netstat -nlp | grep 9193
-        kill -9 
 
 7. 脚本
 
@@ -196,7 +195,13 @@
         bin/kafka-server-start.sh ./config/server.properties &
         ```
 
-    * zookeeper启动
+    * 停止broker
+
+        ```bash
+        bin/kafka-server-stop.sh 9092
+        ```
+
+    * zookeeper启动脚
 
         ```bash
         #bash
@@ -204,22 +209,16 @@
         bin/zookeeper-server-start.sh ./config/zookeeper.properties &
         ```
 
-    * 停止端口
+    * 停止zookeeper
 
         ```bash
-        #bash
-        port=$1
-        echo "start to stop $port..."
-        kill -9 `netstat -nlp | grep 2181 | grep tcp| awk '{print $7}' | awk -F '/' '{print $1}'`
-        echo "stoped $port ..."
+        bin/zookeeper-server-stop.sh
         ```
 
     配置脚本可执行
-
     ```bash
     chmod a+x startBroker.sh
     chmod a+x startZookeeper.sh
-    chmod a+x stopPort.sh
     ```
 
     

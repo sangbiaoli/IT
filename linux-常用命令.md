@@ -24,3 +24,23 @@
     systemctl disable firewalld.service #关闭开机自动启动
     systemctl status firewalld #查看防火墙状态
     ```
+
+    * 停止端口
+    
+    ```bash
+    #bash
+    port=$1
+    echo "start to stop $port..."
+
+    pid=$(netstat -nlp | grep :$port | awk '{print $7}' | awk -F"/" '{ print $1 }');
+
+    if [  -n  "$pid"  ];  then
+        kill  -9  $pid;
+    fi
+
+    echo "stoped $port ..."
+    ```
+
+    ```bash
+    chmod a+x stopPort.sh
+    ```
