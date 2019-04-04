@@ -126,13 +126,13 @@
     4. 现在创建一个复制因子为3的新主题
 
         ```bash
-        bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 3 --partitions 1 --topic my
+        bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 3 --partitions 1 --topic my
         ```
 
     5. 查看主题的描述
 
         ```bash
-        bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic my
+        bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic my
         
         Topic:my       PartitionCount:1        ReplicationFactor:3     Configs:segment.bytes=1073741824
         Topic: my      Partition: 0    Leader: 1       Replicas: 0,2,1 Isr: 0,1,2
@@ -221,5 +221,15 @@
     chmod a+x startZookeeper.sh
     ```
 
+8. server.properties的常用配置项
+
+    名称|描述|类型
+    --|--|--
+    broker.id|broker的id，必须是全局唯一的。如果没设置，则会自动生成一个唯一id|int
+    listeners|监听器列表——将侦听以逗号分隔的uri列表和侦听器名称</br>合法样例：PLAINTEXT://myhost:9092,SSL://:9091|string
+    advertised.listeners|代理将向生产者和消费者发布主机名和端口，如果没设置，则用listeners</br>样例:PLAINTEXT://192.168.18.131:9092|string
+    log.dirs|存储log数据的目录|string
+    zookeeper.connect|zookeeper连接字符串，</br>格式为hostname1:port1,hostname2:port2|string
+    zookeeper.connection.timeout.ms|连接zookeeper的超时时间(ms)|int
     
 原文：http://kafka.apache.org/quickstart

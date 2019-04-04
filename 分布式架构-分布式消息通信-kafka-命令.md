@@ -21,6 +21,7 @@ kafka的bin目录下有常用的脚本，下面对这些脚本解释和使用
     * --replica-assignment <String:broker_id_for_part1_replica1 : broker_id_for_part1_replica2 ,broker_id_for_part2_replica1 : broker_id_for_part2_replica2 , ...> : 正在创建或更改的主题手动分区到代理的分配列表
     * --replication-factor <Integer:replication factor> : 正在创建的主题中的每个分区的复制因子       
     * --topic <String: topic> | 要创建、更改、描述或删除的主题
+    * --zookeeper  <String: hosts> |连接zookeeper的字符串，格式为host:port
 
     1. 创建Topic
 
