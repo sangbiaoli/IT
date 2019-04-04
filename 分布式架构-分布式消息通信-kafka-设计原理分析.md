@@ -161,7 +161,7 @@
 
         Majority Vote的选举策略和ZooKeeper中的Zab选举是类似的，实际上ZooKeeper内部本身就实现了少数服从多数的选举策略。kafka中对于Partition的leader副本的选举采用了第一种方法：为Partition分配副本，指定一个ZNode临时节点，第一个成功创建节点的副本就是Leader节点，其他副本会在这个ZNode节点上注册Watcher监听器，一旦Leader宕机，对应的临时节点就会被自动删除，这时注册在该节点上的所有Follower都会收到监听器事件，它们都会尝试创建该节点，只有创建成功的那个follower才会成为Leader（ZooKeeper保证对于一个节点只有一个客户端能创建成功），其他follower继续重新注册监听事件。
 
-    **Kafka消息分组，消息消费原理**
+5. Kafka消息分组，消息消费原理**
 
     同一Topic的一条消息只能被同一个Consumer Group内的一个Consumer消费，但多个Consumer Group可同时消费这一消息。
 
@@ -181,47 +181,47 @@
 
     生产者（producer）是负责向Kafka提交数据的，Kafka会把收到的消息都写入到硬盘中，它绝对不会丢失数据。为了优化写入速度Kafak采用了两个技术，顺序写入和MMFile。
 
-    顺序写入
+    1. **顺序写入**
 
-    因为硬盘是机械结构，每次读写都会寻址，写入，其中寻址是一个“机械动作”，它是最耗时的。所以硬盘最“讨厌”随机I/O，最喜欢顺序I/O。为了提高读写硬盘的速度，Kafka就是使用顺序I/O。
+        因为硬盘是机械结构，每次读写都会寻址，写入，其中寻址是一个“机械动作”，它是最耗时的。所以硬盘最“讨厌”随机I/O，最喜欢顺序I/O。为了提高读写硬盘的速度，Kafka就是使用顺序I/O。
 
-    每条消息都被append到该Partition中，属于顺序写磁盘，因此效率非常高。
+        每条消息都被append到该Partition中，属于顺序写磁盘，因此效率非常高。
 
-    ![](kafka/kafka-design-partition-write.jpg)
+        ![](kafka/kafka-design-partition-write.jpg)
 
-    对于传统的message queue而言，一般会删除已经被消费的消息，而Kafka是不会删除数据的，它会把所有的数据都保留下来，每个消费者（Consumer）对每个Topic都有一个offset用来表示读取到了第几条数据。
+        对于传统的message queue而言，一般会删除已经被消费的消息，而Kafka是不会删除数据的，它会把所有的数据都保留下来，每个消费者（Consumer）对每个Topic都有一个offset用来表示读取到了第几条数据。
 
-    ![](kafka/kafka-design-partition-read.jpg)
+        ![](kafka/kafka-design-partition-read.jpg)
 
-    即便是顺序写入硬盘，硬盘的访问速度还是不可能追上内存。所以Kafka的数据并不是实时的写入硬盘，它充分利用了现代操作系统分页存储来利用内存提高I/O效率。
+        即便是顺序写入硬盘，硬盘的访问速度还是不可能追上内存。所以Kafka的数据并不是实时的写入硬盘，它充分利用了现代操作系统分页存储来利用内存提高I/O效率。
 
-    在Linux Kernal 2.2之后出现了一种叫做“零拷贝(zero-copy)”系统调用机制，就是跳过“用户缓冲区”的拷贝，建立一个磁盘空间和内存空间的直接映射，数据不再复制到“用户态缓冲区”系统上下文切换减少2次，可以提升一倍性能。
+        在Linux Kernal 2.2之后出现了一种叫做“零拷贝(zero-copy)”系统调用机制，就是跳过“用户缓冲区”的拷贝，建立一个磁盘空间和内存空间的直接映射，数据不再复制到“用户态缓冲区”系统上下文切换减少2次，可以提升一倍性能。
 
-    ![](kafka/kafka-design-disk-read.jpg)
+        ![](kafka/kafka-design-disk-read.jpg)
 
-    通过mmap，进程像读写硬盘一样读写内存（当然是虚拟机内存）。使用这种方式可以获取很大的I/O提升，省去了用户空间到内核空间复制的开销（调用文件的read会把数据先放到内核空间的内存中，然后再复制到用户空间的内存中。）
+        通过mmap，进程像读写硬盘一样读写内存（当然是虚拟机内存）。使用这种方式可以获取很大的I/O提升，省去了用户空间到内核空间复制的开销（调用文件的read会把数据先放到内核空间的内存中，然后再复制到用户空间的内存中。）
 
-    **消费者（读取数据）**
+    2. **读取数据**
 
-    试想一下，一个Web Server传送一个静态文件，如何优化？答案是zero copy。传统模式下我们从硬盘读取一个文件是这样的。
+        试想一下，一个Web Server传送一个静态文件，如何优化？答案是zero copy。传统模式下我们从硬盘读取一个文件是这样的。
 
-    ![](kafka/kafka-design-disk-read-traditional.jpg)
+        ![](kafka/kafka-design-disk-read-traditional.jpg)
 
-    先复制到内核空间（read是系统调用，放到了DMA，所以用内核空间），然后复制到用户空间（1、2）；从用户空间重新复制到内核空间（你用的socket是系统调用，所以它也有自己的内核空间），最后发送给网卡（3、4）。
+        先复制到内核空间（read是系统调用，放到了DMA，所以用内核空间），然后复制到用户空间（1、2）；从用户空间重新复制到内核空间（你用的socket是系统调用，所以它也有自己的内核空间），最后发送给网卡（3、4）。
 
-    ![](kafka/kafka-design-disk-read-new.jpg)
+        ![](kafka/kafka-design-disk-read-new.jpg)
 
-    Zero Copy中直接从内核空间（DMA的）到内核空间（Socket的），然后发送网卡。这个技术非常普遍，Nginx也是用的这种技术。
+        Zero Copy中直接从内核空间（DMA的）到内核空间（Socket的），然后发送网卡。这个技术非常普遍，Nginx也是用的这种技术。
 
-    实际上，Kafka把所有的消息都存放在一个一个的文件中，当消费者需要数据的时候Kafka直接把“文件”发送给消费者。当不需要把整个文件发出去的时候，Kafka通过调用Zero Copy的sendfile这个函数，这个函数包括：
+        实际上，Kafka把所有的消息都存放在一个一个的文件中，当消费者需要数据的时候Kafka直接把“文件”发送给消费者。当不需要把整个文件发出去的时候，Kafka通过调用Zero Copy的sendfile这个函数，这个函数包括：
 
-    * out_fd作为输出（一般及时socket的句柄）
+        * out_fd作为输出（一般及时socket的句柄）
 
-    * in_fd作为输入文件句柄
+        * in_fd作为输入文件句柄
 
-    * off_t表示in_fd的偏移（从哪里开始读取）
+        * off_t表示in_fd的偏移（从哪里开始读取）
 
-    * size_t表示读取多少个
+        * size_t表示读取多少个
 
 
 原文：http://www.linkedkeeper.com/detail/blog.action?bid=1016
