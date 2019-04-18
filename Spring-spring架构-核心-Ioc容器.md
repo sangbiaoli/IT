@@ -586,6 +586,115 @@
             ```
         
 5. Bean作用范围
+
+    Scope可以控制由特定bean定义创建的对象的范围。这种方法功能强大且灵活，因为您可以选择通过配置创建的对象的范围，而不必在Java类级别上考虑对象的范围。可以将bean定义为部署在多个范围中的一个。
+    
+    Spring框架支持六个作用域，其中四个只有在使用web感知的应用程序上下文时才可用。您还可以创建自定义范围。
+
+    作用范围|描述
+    --|--
+    singleton|(默认值)为每个Spring IoC容器将单个bean定义范围限定为单个对象实例。
+    prototype|将单个bean定义的范围限定为任意数量的对象实例。
+    request|将单个bean定义的范围限定为单个HTTP请求的生命周期，只在web感知应用中有效
+    session|将单个bean定义的范围限定为HTTP会话的生命周期，只在web感知应用中有效
+    application|将单个bean定义的范围限定为ServletContext的生命周期，只在web感知应用中有效
+    websocket|将单个bean定义的范围限定为WebSocket的生命，只在web感知应用中有效
+
+    1. singleton作用范围
+
+        Spring IoC容器只创建一次这个bean实例，并存储在此类单例bean的缓存中，对于该命名bean的所有后续请求和引用都返回缓存的对象。
+
+        ![](spring/spring-core-ioc-container-singleton.png)
+
+    2. prototype
+
+        每一次请求时都会创建新的bean。通常，您应该为所有有状态bean使用原型范围，为无状态bean使用单例范围。
+
+        ![](spring/spring-core-ioc-container-prototype.png)
+
+        (数据访问对象(DAO)通常不配置为原型，因为典型的DAO不包含任何会话状态。)
+    
+    3. 具有原型bean属性的单例bean
+
+        把原型bean注入到单例bean时，一个新的原型bean被实例化，然后依赖注入到单例bean中。
+
+    4. Request, Session, Application和WebSocket
+
+        在web感知应用中，request, session, application和websocket才有效。
+
+        * Web配置初始化
+
+            为了在request, session, application和websocket级别(web范围bean)上支持bean的作用域，在定义bean之前需要进行一些较小的初始配置。
+
+            * 如果使用springMVC，DispatcherServlet在web启动时会初始化
+            * 使用Servlet 2.5容器，可以注册org.springframework.web.context.request.RequestContextListener
+
+                ```xml
+                <web-app>
+                    ...
+                    <listener>
+                        <listener-class>
+                            org.springframework.web.context.request.RequestContextListener
+                        </listener-class>
+                    </listener>
+                    ...
+                </web-app>
+                ```
+
+            * 或者，如果侦听器设置有问题，可以考虑使用Spring的RequestContextFilter
+
+                ```xml
+                <web-app>
+                    ...
+                    <filter>
+                        <filter-name>requestContextFilter</filter-name>
+                        <filter-class>org.springframework.web.filter.RequestContextFilter</filter-class>
+                    </filter>
+                    <filter-mapping>
+                        <filter-name>requestContextFilter</filter-name>
+                        <url-pattern>/*</url-pattern>
+                    </filter-mapping>
+                    ...
+                </web-app>
+                ```
+
+            DispatcherServlet、RequestContextListener和RequestContextFilter都做完全相同的事情，即将HTTP请求对象绑定到服务该请求的线程。这使得请求和会话范围的bean在调用链的更下方可用。
+
+        * Request
+
+            考虑如下的bean定义：
+            
+            ```xml
+            <bean id="loginAction" class="com.foo.LoginAction" scope="request"/>
+            ```
+
+            对于每个http请求，Spring容器会创建一个 LoginAction bean 的新实例。也就是说，loginAction bean 的作用域限于 HTTP 请求范围。 你可以在请求内随意修改这个bean实例的状态，因为其他 loginAction bean实例看不到这些变化，bean实例是与特定的请求相关的。 当请求处理完毕，对应的bean实例也就销毁（被回收）了。
+
+        * Session
+
+            考虑如下的bean定义:
+
+            ```xml
+            <bean id="userPreferences" class="com.foo.UserPreferences" scope="session"/>
+            ```
+
+            在每个HTTP Session的生命周期内，Spring容器会根据id为 userPreferences 的bean定义创建一个UserPreferences bean 的新实例。 也就是说，userPreferences bean 的作用域限于 HTTP Session范围。
+
+        * Application
+
+            考虑如下的bean定义:
+
+            ```xml
+            <bean id="appPreferences" class="com.something.AppPreferences" scope="application"/>
+            ```
+
+            Spring容器通过为整个web应用程序使用一次AppPreferences bean定义来创建AppPreferences bean的新实例。也就是说，appPreferences bean的作用域在ServletContext级别，并存储为一个常规的ServletContext属性。类似于单例，对于单个ServletContext是单独的，但对于ApplicationContext则不是。
+
+
+        
+    5. 定制范围
+
+        
 6. 自定义Bean的性质
 7. Bean定义继承
 8. 容器扩展点
