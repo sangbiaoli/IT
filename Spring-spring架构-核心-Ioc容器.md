@@ -692,10 +692,202 @@
 
 
         
-    5. 定制范围
+    5. 自定义范围
 
+        ![](spring/spring-core-ioc-container-scope.png)
+
+        除了使用spring内置的scope，我们也可以自定义scope。要集成自定义scope，需要实现接口org.springframework.beans.factory.config.Scope，这个接口共有五个个方法
+
+        方法|说明
+        --|--
+        Object get(String name, ObjectFactory<?> objectFactory)|从基础范围返回给定名称的对象
+        Object remove(String name)|从基础范围移除给定名称的对象
+        void registerDestructionCallback(String name, Runnable callback)|注册一个回调方法，当给定名称的对象被销毁时可以执行该方法
+        Object resolveContextualObject(String key)|解析给定键的上下文对象
+        String getConversationId()|返回当前基础范围的对话ID(如果有的话)。
         
 6. 自定义Bean的性质
+
+    Spring框架提供了许多接口，您可以使用它们定制bean的性质。将从以下三点讨论下
+
+    * 生命周期回调
+    * ApplicationContextAware和BeanNameAware
+    * 其他Aware接口
+
+    1. 生命周期回调
+
+        要与容器对bean生命周期的管理进行交互，可以实现Spring的两个接口InitializingBean和DisposableBean，容器调用前者的afterPropertiesSet()方法及后者的destroy()方法。
+
+        * 初始化回调
+
+            InitializingBean接口只有一个方法
+            
+            ```java
+            void afterPropertiesSet() throws Exception;
+            ```
+
+            不建议使用InitializingBean接口，因为它不必要地将代码耦合到Spring。经常会使用init-method属性来声明一个bean的初始化方法。
+
+            ```xml
+            <bean id="exampleInitBean" class="examples.ExampleBean" init-method="init"/>
+            ```
+
+            ```java
+            public class ExampleBean {
+
+                public void init() {
+                    // do some initialization work
+                }
+            }
+            ```
+
+        * 销毁回调
+
+            DisposableBean接口只有一个方法
+            
+            ```java
+            void destroy() throws Exception;
+            ```
+
+            不建议使用DisposableBean接口，因为它不必要地将代码耦合到Spring。经常会使用destroy-method属性来声明一个bean的销毁方法。
+
+            ```xml
+            <bean id="exampleInitBean" class="examples.ExampleBean" destroy-method="cleanup"/>
+            ```
+
+            ```java
+            public class ExampleBean {
+
+                public void cleanup() {
+                    // do some destruction work (like releasing pooled connections)
+                }
+            }
+            ```
+
+        * 默认的初始化和销毁回调
+
+            每次都要在<bean/\>显式声明init-method和destroy-method比较麻烦，因此可以在<beans/\>标签上统一设置默认初始化方法init，因此每个bean只要实现了init，在初始化时就都可以被调用。
+
+            ```xml
+            <beans default-init-method="init">
+
+                <bean id="blogService" class="com.something.DefaultBlogService">
+                    <property name="blogDao" ref="blogDao" />
+                </bean>
+
+            </beans>
+            ```
+
+            ```java
+            public class DefaultBlogService implements BlogService {
+
+                private BlogDao blogDao;
+
+                public void setBlogDao(BlogDao blogDao) {
+                    this.blogDao = blogDao;
+                }
+
+                // this is (unsurprisingly) the initialization callback method
+                public void init() {
+                    if (this.blogDao == null) {
+                        throw new IllegalStateException("The [blogDao] property must be set.");
+                    }
+                }
+            }
+            ```
+
+        * 启动和关闭回调
+
+            LifeCycle接口为任何有自己生命周期需求的对象定义了基本的方法(例如启动和停止一些后台进程)
+
+            ```java
+            public interface Lifecycle {
+
+                void start();
+
+                void stop();
+
+                boolean isRunning();
+            }
+            ```
+
+            任何实现了Lifecycle接口的对象，然后，当ApplicationContext本身接收启动和停止信号(例如，对于运行时的停止/重启场景)时，它将这些调用级联到该上下文中定义的所有生命周期实现。它通过委托给LifecycleProcessor来实现这一点
+
+            ```java
+            public interface LifecycleProcessor extends Lifecycle {
+
+                void onRefresh();
+
+                void onClose();
+            }
+            ```
+
+        * 在非web应用程序中优雅地关闭Spring IoC容器
+
+            ```java
+            import org.springframework.context.ConfigurableApplicationContext;
+            import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+            public final class Boot {
+
+                public static void main(final String[] args) throws Exception {
+                    ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext("beans.xml");
+
+                    // add a shutdown hook for the above context...
+                    ctx.registerShutdownHook();
+
+                    // app runs here...
+
+                    // main method exits, hook is called prior to the app shutting down...
+                }
+            }
+            ```
+
+    2. ApplicationContextAware和BeanNameAware
+
+        当ApplicationContext创建实现org.springframework.context的对象实例时，实例提供了对该ApplicationContext的引用。
+
+        ```java
+        public interface ApplicationContextAware {
+
+            void setApplicationContext(ApplicationContext applicationContext) throws BeansException;
+        }
+        ```
+
+        一种用途是通过编程检索其他bean。有时这种能力是有用的。但是，一般来说，您应该避免使用它，因为它将代码耦合到Spring中，并且不遵循控制反转样式(将协作者作为属性提供给bean)。ApplicationContext的其他方法提供对文件资源的访问、发布应用程序事件和访问MessageSource。
+
+        当应用程序上下文创建一个实现org.springframework.beans.factory.BeanNameAware接口的类时，提供了对其关联对象定义中定义名称的引用。
+
+        ```java
+        public interface BeanNameAware {
+
+            void setBeanName(String name) throws BeansException;
+        }
+        ```
+
+        回调函数在填充普通bean属性之后调用，但在初始化回调(如InitializingBean、afterPropertiesSet或自定义init-method)之前调用。
+
+    3. 其他Aware接口
+
+        除了applicationcontext ware和BeanNameAware(前面讨论过)之外，Spring还提供了广泛的可感知回调接口，让bean向容器表明它们需要某种基础设施依赖关系。通常，名称表示依赖项类型。
+
+        名字|注入依赖
+        --|--
+        ApplicationContextAware|声明ApplicationContext
+        ApplicationEventPublisherAware|封装的ApplicationContext的事件发布程序
+        BeanClassLoaderAware|用于加载bean类的类加载器
+        BeanFactoryAware|声明BeanFactory
+        BeanNameAware|声明bean的名称
+        BootstrapContextAware|资源适配器引导容器运行的上下文。通常只在支持jca的ApplicationContext实例中可用。	
+        LoadTimeWeaverAware|定义了用于在加载时处理类定义的weaver。	
+        MessageSourceAware|已配置的消息解析策略(支持参数化和国际化)。
+        NotificationPublisherAware|Spring JMX通知发布程序。	
+        ResourceLoaderAware|配置的加载程序，用于低层访问资源。
+        ServletConfigAware|当前servlet配置容器运行。仅在可感知web的Spring应用程序上下文中有效。
+        ServletContextAware|容器运行在当前ServletContext中。仅在可感知web的Spring应用程序上下文中有效。
+
+        **再次注意，使用这些接口将代码绑定到Spring API，并且不遵循控制反转样式。因此，我们建议将它们用于需要对容器进行编程访问的基础设施bean。**
+
 7. Bean定义继承
 8. 容器扩展点
 9. 基于注解的容器配置
