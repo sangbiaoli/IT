@@ -889,7 +889,125 @@
         **再次注意，使用这些接口将代码绑定到Spring API，并且不遵循控制反转样式。因此，我们建议将它们用于需要对容器进行编程访问的基础设施bean。**
 
 7. Bean定义继承
+
+    子bean定义从父定义继承配置数据。子定义可以根据需要覆盖一些值或添加其他值。使用父bean和子bean定义可以节省大量输入。*实际上，这是模板的一种形式。*
+
+    ```xml
+    <bean id="inheritedTestBean" abstract="true"
+        class="org.springframework.beans.TestBean">
+        <property name="name" value="parent"/>
+        <property name="age" value="1"/>
+    </bean>
+
+    <bean id="inheritsWithDifferentClass"
+            class="org.springframework.beans.DerivedTestBean"
+            parent="inheritedTestBean" init-method="initialize">  
+        <property name="name" value="override"/>
+        <!-- the age property value of 1 will be inherited from parent -->
+    </bean>
+    ```
+
 8. 容器扩展点
+
+    1. 通过使用BeanPostProcessor定制bean
+
+        BeanPostProcessor接口定义了回调方法，您可以实现这些方法来提供您自己的(或覆盖容器的默认)实例化逻辑、依赖项解析逻辑等等。如果希望在Spring容器实例化、配置和初始化bean之后实现一些定制逻辑，可以插入一个或多个定制BeanPostProcessor实现。
+
+        ```java
+        package scripting;
+
+        import org.springframework.beans.factory.config.BeanPostProcessor;
+
+        public class InstantiationTracingBeanPostProcessor implements BeanPostProcessor {
+
+            // simply return the instantiated bean as-is
+            public Object postProcessBeforeInitialization(Object bean, String beanName) {
+                return bean; // we could potentially return any object reference here...
+            }
+
+            public Object postProcessAfterInitialization(Object bean, String beanName) {
+                System.out.println("Bean '" + beanName + "' created : " + bean.toString());
+                return bean;
+            }
+        }
+        ```
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:lang="http://www.springframework.org/schema/lang"
+            xsi:schemaLocation="http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/lang
+                https://www.springframework.org/schema/lang/spring-lang.xsd">
+
+            <lang:groovy id="messenger"
+                    script-source="classpath:org/springframework/scripting/groovy/Messenger.groovy">
+                <lang:property name="message" value="Fiona Apple Is Just So Dreamy."/>
+            </lang:groovy>
+
+            <!--
+            when the above bean (messenger) is instantiated, this custom
+            BeanPostProcessor implementation will output the fact to the system console
+            -->
+            <bean class="scripting.InstantiationTracingBeanPostProcessor"/>
+
+        </beans>
+        ```
+
+        ```java
+        import org.springframework.context.ApplicationContext;
+        import org.springframework.context.support.ClassPathXmlApplicationContext;
+        import org.springframework.scripting.Messenger;
+
+        public final class Boot {
+
+            public static void main(final String[] args) throws Exception {
+                ApplicationContext ctx = new ClassPathXmlApplicationContext("scripting/beans.xml");
+                Messenger messenger = (Messenger) ctx.getBean("messenger");
+                System.out.println(messenger);
+            }
+
+        }
+        ```
+
+        执行输出结果
+
+        ```
+        Bean 'messenger' created : org.springframework.scripting.groovy.GroovyMessenger@272961
+        org.springframework.scripting.groovy.GroovyMessenger@272961
+        ```
+
+    2. 使用BeanFactoryPostProcessor自定义配置元数据
+
+        BeanFactoryPostProcessor这个接口的语义类似于BeanPostProcessor的语义，但有一个主要区别:BeanFactoryPostProcessor操作bean配置元数据。也就是说，Spring IoC容器允许BeanFactoryPostProcessor读取配置元数据，并可能在容器实例化除BeanFactoryPostProcessor实例之外的任何bean之前更改它。
+
+        * PropertyPlaceholderConfigurer配置方式
+
+            ```xml
+            <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+                <property name="locations" value="classpath:com/something/jdbc.properties"/>
+            </bean>
+
+            <bean id="dataSource" destroy-method="close"
+                    class="org.apache.commons.dbcp.BasicDataSource">
+                <property name="driverClassName" value="${jdbc.driverClassName}"/>
+                <property name="url" value="${jdbc.url}"/>
+                <property name="username" value="${jdbc.username}"/>
+                <property name="password" value="${jdbc.password}"/>
+            </bean>
+            ```
+
+            jdbc.properties
+
+            ```
+            jdbc.driverClassName=org.hsqldb.jdbcDriver
+            jdbc.url=jdbc:hsqldb:hsql://production:9002
+            jdbc.username=sa
+            jdbc.password=root
+            ```
+
 9. 基于注解的容器配置
 10. ClassPath扫描和管理组件
 11. 使用JSR330标准注解
@@ -898,3 +1016,5 @@
 14. 注册一个LoadTimeWeaver
 15. ApplicationContext附加功能
 16. BeanFactory
+
+原文：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#spring-core
