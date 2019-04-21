@@ -1009,6 +1009,357 @@
             ```
 
 9. 基于注解的容器配置
+
+    XML设置的另一种替代方法是基于注释的配置，它依赖于字节码元数据来连接组件，而不是角括号声明。开发人员不使用XML描述bean连接，而是通过使用相关类、方法或字段声明上的注释将配置移动到组件类本身。
+
+    与往常一样，您可以将它们注册为单独的bean定义，但是也可以通过在基于xml的Spring配置中包含以下标记来隐式注册它们(请注意上下文名称空间的包含)。
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+            https://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context
+            https://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:annotation-config/>
+
+    </beans>
+    ```
+
+    1. @Required
+
+        @Required注释应用于bean属性setter方法。
+
+        ```java
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+            private int type;
+
+            @Required
+            public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+
+            public void setMovieFinder(int type) {
+                this.type = type;
+            }
+        }
+        ```
+
+        在上面的例子中，movieFinder属性添加了@Required注解，而type没有。这往往是因为开发中我们更关心movieFinder必须要设置。如果bean定义如下
+
+        ```xml
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:context="http://www.springframework.org/schema/context"
+            xsi:schemaLocation="http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context-2.5.xsd">
+
+            <context:annotation-config />
+
+            <bean id="simpleMovieLister" class="x.y.SimpleMovieLister">
+                <property name="type" value="1" />
+            </bean>        
+        </beans>
+        ```
+
+        因为movieFinder的属性未设置，运行它，会抛出异常：org.springframework.beans.factory.BeanInitializationException
+
+        **从Spring Framework 5.1开始，@Required注释就被正式弃用，而倾向于为所需的设置使用构造函数注入(或InitializingBean.afterPropertiesSet()和bean属性设置器方法的自定义实现)。**
+
+    2. @Autowired
+
+        @Autowired可以修饰方法，构造器，属性。@Autowired基本上是关于类型驱动的注入，带有可选的语义限定符。
+
+        * 构造器方法
+
+            ```java
+            public class MovieRecommender {
+
+                private final CustomerPreferenceDao customerPreferenceDao;
+
+                @Autowired
+                public MovieRecommender(CustomerPreferenceDao customerPreferenceDao) {
+                    this.customerPreferenceDao = customerPreferenceDao;
+                }
+
+                // ...
+            }
+            ```
+
+        * 任何方法和多个参数
+
+            ```java
+            public class MovieRecommender {
+
+                private MovieCatalog movieCatalog;
+
+                private CustomerPreferenceDao customerPreferenceDao;
+
+                @Autowired
+                public void prepare(MovieCatalog movieCatalog,
+                        CustomerPreferenceDao customerPreferenceDao) {
+                    this.movieCatalog = movieCatalog;
+                    this.customerPreferenceDao = customerPreferenceDao;
+                }
+
+            }
+            ```
+
+            还可以是Set，Collection，Map等。
+
+            ```java
+            public class MovieRecommender {
+
+                private Set<MovieCatalog> movieCatalogs;
+
+                @Autowired
+                public void setMovieCatalogs(Set<MovieCatalog> movieCatalogs) {
+                    this.movieCatalogs = movieCatalogs;
+                }
+
+                // ...
+            }
+            ```
+
+        * 属性
+
+            ```java
+            public class MovieRecommender {
+                @Autowired
+                private MovieCatalog movieCatalog;
+            }
+            ```
+
+        如果没有一个候选的bean可用，则自动装配会失败，但可以设置为非必需。
+
+        ```java
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Autowired(required = false)
+            public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+
+            // ...
+        }
+        ```
+
+        另外两种非必填设置
+
+        1. Java 8的java.util.Optional
+
+            ```java
+            public class SimpleMovieLister {
+
+                @Autowired
+                public void setMovieFinder(Optional<MovieFinder> movieFinder) {
+                    ...
+                }
+            }
+            ```
+
+        2. @Nullable
+
+            ```java
+            public class SimpleMovieLister {
+
+                @Autowired
+                public void setMovieFinder(@Nullable MovieFinder movieFinder) {
+                    ...
+                }
+            }
+            ```
+
+
+    3. @Primary
+
+        当出现多个候选bean时，可通过@Primary来设置其中一个作为首选。
+
+        ```java
+        @Configuration
+        public class MovieConfiguration {
+
+            @Bean
+            @Primary
+            public MovieCatalog firstMovieCatalog() { ... }
+
+            @Bean
+            public MovieCatalog secondMovieCatalog() { ... }
+
+            // ...
+        }
+        ```
+
+        ```java
+        public class MovieRecommender {
+
+            @Autowired
+            private MovieCatalog movieCatalog; //firstMovieCatalog会被注入
+
+            // ...
+        }
+        ```
+
+    4. @Qualifier
+
+        当出现多个候选bean时，为了更灵活的选择bean，可以使用@Qualifier(限定符)。
+
+        ```java
+        public class MovieRecommender {
+
+            @Autowired
+            @Qualifier("main")
+            private SimpleMovieCatalog mainMovieCatalog;
+
+            @Autowired
+            @Qualifier("action")
+            private SimpleMovieCatalog actionMovieCatalog;
+        }
+        ```
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:context="http://www.springframework.org/schema/context"
+            xsi:schemaLocation="http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                https://www.springframework.org/schema/context/spring-context.xsd">
+
+            <context:annotation-config/>
+
+            <bean class="example.SimpleMovieCatalog">
+                <qualifier value="main"/>
+            </bean>
+
+            <bean class="example.SimpleMovieCatalog">
+                <qualifier value="action"/>
+            </bean>
+
+            <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+        </beans>
+        ```
+
+        xml中定义了两个SimpleMovieCatalog，但它们拥有不同的qualifier值，因此在java中会根据对应的值进行装配对应的bean。
+
+        另外上面用id作区分也可以。
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:context="http://www.springframework.org/schema/context"
+            xsi:schemaLocation="http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                https://www.springframework.org/schema/context/spring-context.xsd">
+
+            <context:annotation-config/>
+
+            <bean class="example.SimpleMovieCatalog" id="main">
+            </bean>
+
+            <bean class="example.SimpleMovieCatalog" id="action">
+            </bean>
+
+            <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+        </beans>
+        ```
+
+
+
+    5. 使用泛型作为自动装配限定符
+
+        ```java
+        @Configuration
+        public class MyConfiguration {
+
+            @Bean
+            public StringStore stringStore() {
+                return new StringStore();
+            }
+
+            @Bean
+            public IntegerStore integerStore() {
+                return new IntegerStore();
+            }
+        }
+        ```
+
+
+        ```java
+        @Autowired
+        private Store<String> s1; // <String> qualifier, 注入stringStore bean
+
+        @Autowired
+        private Store<Integer> s2; // <Integer> qualifier, 注入integerStore bean
+        ```
+
+    6. 使用CustomAutowireConfigurer
+
+        CustomAutowireConfigurer是一个BeanFactoryPostProcessor，它允许您注册自己的自定义限定符注释类型，即使它们没有使用Spring的@Qualifier注释进行注释。
+
+
+        ```xml
+        <bean id="customAutowireConfigurer"
+            class="org.springframework.beans.factory.annotation.CustomAutowireConfigurer">
+            <property name="customQualifierTypes">
+                <set>
+                    <value>example.CustomQualifier</value>
+                </set>
+            </property>
+        </bean>
+        ```
+
+    7. @Resource
+
+        @Resource接受name属性。默认情况下，Spring将该值解释为要注入的bean名称。换句话说，它遵循名称语义
+
+        ```java
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Resource(name="myMovieFinder") 
+            public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+        }
+        ```
+
+        如果没有显式指定名称，则默认名称派生自字段名称或setter方法。
+
+    8. @PostConstruct和@PreDestroy
+
+        在下面的例子中，缓存在初始化时被预填充，在销毁时被清除。
+
+        ```java
+        public class CachingMovieLister {
+
+            @PostConstruct
+            public void populateMovieCache() {
+                // populates the movie cache upon initialization...
+            }
+
+            @PreDestroy
+            public void clearMovieCache() {
+                // clears the movie cache upon destruction...
+            }
+        }
+        ```
+
 10. ClassPath扫描和管理组件
 11. 使用JSR330标准注解
 12. 基于Java的容器配置
