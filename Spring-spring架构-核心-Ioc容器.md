@@ -1361,6 +1361,217 @@
         ```
 
 10. ClassPath扫描和管理组件
+
+    上文所提的bean定义仍然在xml中，本节描述通过扫描类路径隐式检测候选组件的选项。
+
+    *从Spring 3.0开始，Spring JavaConfig项目提供的许多特性都是Spring核心框架的一部分。这允许您使用Java定义bean，而不是使用传统的XML文件。查看@Configuration、@Bean、@Import和@DependsOn注释，了解如何使用这些新特性。*
+
+    1. @Component和更多构造型注解
+
+        Spring提供的构造性注解(Stereotype Annotations)有：@Component，@Controller，@Service和@Repository。**@Controller， @Service和@Repository是@Component的特殊化。**
+
+        * @Component：一般组件
+        * @Controller：controller层组件
+        * @Service：业务层组件
+        * @Repository：任何满足存储库角色或原型(也称为数据访问对象或DAO)的类的标记
+
+    2. 使用元注释和组合注释
+
+        Spring提供的许多注释都可以在您自己的代码中用作元注释。元注释是可以应用于其他注释的注释。例如，前面提到的@Service注释是用@Component进行元注释的。
+
+        ```java
+        @Target(ElementType.TYPE)
+        @Retention(RetentionPolicy.RUNTIME)
+        @Documented
+        @Component 
+        public @interface Service {
+
+            // ....
+        }
+        ```
+
+    3. 自动检测类并注册Bean定义
+
+        Spring可以自动检测原型类，并在ApplicationContext中注册相应的bean定义实例。
+
+        ```java
+        @Service
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Autowired
+            public SimpleMovieLister(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+        }
+        ```
+
+        ```java
+        @Repository
+        public class JpaMovieFinder implements MovieFinder {
+            // implementation elided for clarity
+        }
+        ```
+
+        要自动检测这些类并注册相应的bean，需要将@ComponentScan添加到@Configuration类中，其中basePackages属性是这两个类的公共父包。
+
+        ```java
+        @Configuration
+        @ComponentScan(basePackages = "org.example")
+        public class AppConfig  {
+            ...
+        }
+        ```
+
+        或者xml
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:context="http://www.springframework.org/schema/context"
+            xsi:schemaLocation="http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                https://www.springframework.org/schema/context/spring-context.xsd">
+
+            <context:component-scan base-package="org.example"/>
+
+        </beans>
+        ```
+
+    4. 使用过滤器自定义扫描
+
+        默认我们要为每个bean添加注解，比如@Component, @Repository, @Service, @Controller，这样bean就有对应的特性。在@ComponentScan注解扫描包时，可以通过includeFilters和excludeFilters来修改和扩展此行为。每个筛选器元素都需要类型和表达式属性。
+
+        过滤器类型|	示例表达式|	描述
+        --|--|--
+        annotation(默认)|org.example.SomeAnnotation|要在目标组件的类型级别上显示的注释。
+        assignable|org.example.SomeClass|目标组件可分配给(扩展或实现)的类(或接口)。	
+        aspectj|org.example..*Service+|要由目标组件匹配的AspectJ类型表达式。	
+        regex|org\.example\.Default.*|由目标组件类名匹配的正则表达式。
+        custom|org.example.MyTypeFilter|一个自定义的org.springframework.core实现。.TypeFilter接口类型。
+
+        下面的示例显示了忽略所有@Repository注释而使用“stub”存储库的配置:
+
+        ```java
+        @Configuration
+        @ComponentScan(basePackages = "org.example",
+                includeFilters = @Filter(type = FilterType.REGEX, pattern = ".*Stub.*Repository"),
+                excludeFilters = @Filter(Repository.class))
+        public class AppConfig {
+            ...
+        }
+        ```
+
+        或者xml
+
+        ```xml
+        <beans>
+            <context:component-scan base-package="org.example">
+                <context:include-filter type="regex"
+                        expression=".*Stub.*Repository"/>
+                <context:exclude-filter type="annotation"
+                        expression="org.springframework.stereotype.Repository"/>
+            </context:component-scan>
+        </beans>
+        ```
+
+    5. 在组件中定义Bean元数据
+
+        Spring组件还可以向容器提供bean定义元数据。您可以使用@Component注释类中用于定义bean元数据的@Bean注释来实现这一点。
+
+        ```java
+        @Component
+        public class FactoryMethodComponent {
+
+            private static int i;
+
+            @Bean
+            @Qualifier("public")
+            public TestBean publicInstance() {
+                return new TestBean("publicInstance");
+            }
+
+            //自定义限定符的使用和方法参数自动装配
+            @Bean
+            protected TestBean protectedInstance(
+                    @Qualifier("public") TestBean spouse,
+                    @Value("#{privateInstance.age}") String country) {
+                TestBean tb = new TestBean("protectedInstance", 1);
+                tb.setSpouse(spouse);
+                tb.setCountry(country);
+                return tb;
+            }
+
+            @Bean
+            private TestBean privateInstance() {
+                return new TestBean("privateInstance", i++);
+            }
+
+            @Bean
+            @RequestScope
+            public TestBean requestScopedInstance() {
+                return new TestBean("requestScopedInstance", 3);
+            }
+        }
+        ```
+
+        @Bean注解告诉Spring这个方法将会返回一个对象，这个对象要注册为Spring应用上下文中的bean。通常方法体中包含了最终产生bean实例的逻辑。
+
+    6. 命名自动检测组件
+
+        当一个组件作为扫描过程的一部分被自动检测时，它的bean名称由扫描器所知道的BeanNameGenerator策略生成。
+
+        ```java
+        @Service("myMovieLister")
+        public class SimpleMovieLister {
+            // ...
+        }
+        ```
+
+    7. 为自动检测组件提供Scope
+
+        与一般的spring管理组件一样，自动检测组件的默认且最常见的作用域是单例的。但是，有时您需要一个可以由@Scope注释指定的不同范围。您可以在注释中提供作用域的名称。
+
+        ```java
+        @Scope("prototype")
+        @Repository
+        public class MovieFinderImpl implements MovieFinder {
+            // ...
+        }
+        ```
+
+    8. 使用注释提供限定符元数据
+
+        本节中的示例演示了在解析autowire候选项时使用@Qualifier注释和自定义qualifier注释提供细粒度控制。
+         
+        ```java
+        @Component
+        @Qualifier("Action")
+        public class ActionMovieCatalog implements MovieCatalog {
+            // ...
+        }
+        ```
+
+    9. 生成候选组件索引
+
+        虽然类路径扫描非常快，但是可以通过在编译时创建一个静态候选列表来提高大型应用程序的启动性能。在此模式下，组件扫描的所有目标模块都必须使用该机制。
+
+        要生成索引，请向每个包含组件的模块添加附加依赖项，这些组件是组件扫描指令的目标。
+
+        ```xml
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-context-indexer</artifactId>
+                <version>5.1.6.RELEASE</version>
+                <optional>true</optional>
+            </dependency>
+        </dependencies>
+        ```
+
 11. 使用JSR330标准注解
 12. 基于Java的容器配置
 13. 环境抽象
