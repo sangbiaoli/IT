@@ -1573,6 +1573,95 @@
         ```
 
 11. 使用JSR330标准注解
+
+    1. 用@Inject和@Named的依赖注入
+
+        可以使用@javax.inject.Inject而不是@Autowired。
+
+        ```java
+        import javax.inject.Inject;
+
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Inject
+            public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+
+            public void listMovies() {
+                this.movieFinder.findMovies(...);
+                ...
+            }
+        }
+        ```
+
+        可以使用@javax.inject.Named而不是@Qualified
+
+        ```java
+        import javax.inject.Inject;
+        import javax.inject.Named;
+
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Inject
+            public void setMovieFinder(@Named("main") MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+
+            // ...
+        }
+        ```
+
+    2. @Named和@ManagedBean:与@Component注释等价的标准
+
+        ```java
+        import javax.inject.Inject;
+        import javax.inject.Named;
+
+        @Named("movieListener")  // @ManagedBean("movieListener") could be used as well
+        public class SimpleMovieLister {
+
+            private MovieFinder movieFinder;
+
+            @Inject
+            public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+            }
+
+            // ...
+        }
+        ```
+
+        当您使用@Named或@ManagedBean时，您可以像使用Spring注释一样使用组件扫描
+
+        ```java
+        @Configuration
+        @ComponentScan(basePackages = "org.example")
+        public class AppConfig  {
+            ...
+        }
+        ```
+
+    3. JSR-330标准注解的限制
+
+        Spring组件和JSR-330对比
+
+        Spring|javax.inject.*|javax.inject restrictions / comments
+        --|--|--
+        @Autowired|@Inject|@Inject 没有required属性，可以与Java 8的Optional一起使用。
+        @Component|@Named / @ManagedBean|JSR-330不提供可组合模型，只提供了一种识别命名组件的方法。
+        @Scope("singleton")|@Singleton|JSR-330默认范围类似于Spring的原型。但是，为了使它与Spring的一般缺省值保持一致，在Spring容器中声明的JSR-330 bean在缺省情况下是单例的。
+        @Qualifier|@Qualifier / @Named|javax.inject.Qualifier只是用于构建自定义限定符的元注释，具体的字符串限定符(比如Spring的带有一个值的@Qualifier)可以通过javax.inject.Named关联起来
+        @Value|-|没有等效的
+        @Required|-|没有等效的
+        @Lazy|-|没有等效的
+        ObjectFactory|Provider|javax.inject.Provider是Spring的ObjectFactory的直接替代方法，只是具有更短的get()方法名。
+
+
 12. 基于Java的容器配置
 13. 环境抽象
 14. 注册一个LoadTimeWeaver
