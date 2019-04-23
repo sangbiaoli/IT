@@ -1663,6 +1663,220 @@
 
 
 12. 基于Java的容器配置
+
+    本节通过以下主题来描述在Java代码中使用注释来配置Spring容器
+
+    * 基本概念: @Bean和@Configuration
+    * 通过使用AnnotationConfigApplicationContext实例化Spring容器
+    * 使用@Bean注解
+    * 使用@Configuration注解
+    * 编写基于java的配置
+    * Bean定义配置文件
+    * PropertySource抽象
+    * 使用@PropertySource
+    * 语句中的占位符解析
+
+    1. 基本概念: @Bean和@Configuration
+
+        @Bean注释用于指示方法实例化、配置和初始化要由Spring IoC容器管理的新对象。
+
+        @Configuration注释类表明其主要目的是作为bean定义的源。
+
+        ```java
+        @Configuration
+        public class AppConfig {
+
+            @Bean
+            public MyService myService() {
+                return new MyServiceImpl();
+            }
+        }
+        ```
+
+        等同于以下xml配置
+
+        ```xml
+        <beans>
+            <bean id="myService" class="com.acme.services.MyServiceImpl"/>
+        </beans>
+        ```
+    
+    2. 通过使用AnnotationConfigApplicationContext实例化Spring容器
+
+        * 简单构造方式
+
+            ```java
+            public static void main(String[] args) {
+                ApplicationContext ctx = new AnnotationConfigApplicationContext(AppConfig.class);
+                MyService myService = ctx.getBean(MyService.class);
+                myService.doStuff();
+            }
+            ```
+
+        * 使用register(类<?>…)以编程方式构建容器。
+
+            ```java
+            public static void main(String[] args) {
+                AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+                ctx.register(AppConfig.class, OtherConfig.class);
+                ctx.register(AdditionalConfig.class);
+                ctx.refresh();
+                MyService myService = ctx.getBean(MyService.class);
+                myService.doStuff();
+            }
+            ```
+
+    3. 使用@Bean注解
+
+        @Bean是一个方法级别的注解，等同与<bean/\>。
+
+        * 声明bean
+        
+            ```java
+            @Configuration
+            public class AppConfig {
+
+                @Bean
+                public TransferServiceImpl transferService() {
+                    return new TransferServiceImpl();
+                }
+            }
+            ```
+
+            ```xml
+            <beans>
+                <bean id="transferService" class="com.acme.TransferServiceImpl"/>
+            </beans>
+            ```
+
+        * bean生命周期，名称，别名
+
+            ```java
+            public class BeanOne {
+                
+            }
+
+            public class BeanTwo {
+
+                public void init() {
+                    // initialization logic
+                }
+
+                public void cleanup() {
+                    // destruction logic
+                }
+            }
+
+            @Configuration
+            public class AppConfig {
+
+                @Bean({"beanOne1", "beanOne2", "beanOne3"},)
+                public BeanOne beanOne() {
+                    return new BeanOne();
+                }
+
+                @Bean(name = "beanTwo",initMethod = "init", destroyMethod = "cleanup")
+                public BeanTwo beanTwo() {
+                    return new BeanTwo();
+                }
+            }
+            ```
+
+        * 与@Bean组合的注解，@Scope， @Description
+
+            ```java
+            @Configuration
+            public class AppConfig {
+
+                @Bean
+                @Scope("prototype")
+                @Description("Provides a basic example of a bean")
+                public Thing thing() {
+                    return new Thing();
+                }
+            }
+            ```
+    4. 使用@Configuration注解
+
+        @Configuration是一个类级注释，指示对象是bean定义的源。
+
+        * 查找方法注入
+
+            ```java
+            public abstract class CommandManager {
+                public Object process(Object commandState) {
+                    // grab a new instance of the appropriate Command interface
+                    Command command = createCommand();
+                    // set the state on the (hopefully brand new) Command instance
+                    command.setState(commandState);
+                    return command.execute();
+                }
+
+                // okay... but where is the implementation of this method?
+                protected abstract Command createCommand();
+            }
+
+
+            @Configuration
+            public class AppConfig {
+
+                @Bean
+                @Scope("prototype")
+                public AsyncCommand asyncCommand() {
+                    AsyncCommand command = new AsyncCommand();
+                    // inject dependencies here as required
+                    return command;
+                }
+
+                @Bean
+                public CommandManager commandManager() {
+                    // return new anonymous implementation of CommandManager with createCommand()
+                    // overridden to return a new prototype Command object
+                    return new CommandManager() {
+                        protected Command createCommand() {
+                            return asyncCommand();
+                        }
+                    }
+                }
+            }
+            ```
+
+    5. 编写基于java的配置
+
+        正如<import/\>元素在Spring XML文件中用于帮助模块化配置一样，@Import注释允许从另一个配置类加载@Bean定义
+
+        ```java
+        @Configuration
+        public class ConfigA {
+
+            @Bean
+            public A a() {
+                return new A();
+            }
+        }
+
+        @Configuration
+        @Import(ConfigA.class)
+        public class ConfigB {
+
+            @Bean
+            public B b() {
+                return new B();
+            }
+        }
+        ```
+
+        ```java
+        public static void main(String[] args) {
+            ApplicationContext ctx = new AnnotationConfigApplicationContext(ConfigB.class);
+
+            // now both beans A and B will be available...
+            A a = ctx.getBean(A.class);
+            B b = ctx.getBean(B.class);
+        }
+        ```
+
+
 13. 环境抽象
 14. 注册一个LoadTimeWeaver
 15. ApplicationContext附加功能
