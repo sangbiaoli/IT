@@ -2348,4 +2348,19 @@
 
 16. BeanFactory
 
-原文：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#spring-core
+    BeanFactory API为Spring的IoC功能提供了基础。它的特定契约主要用于与Spring的其他部分和相关第三方框架集成，它的DefaultListableBeanFactory实现是高层GenericApplicationContext容器中的一个关键委托。
+
+    1. BeanFactory还是ApplicationContext？
+
+        BeanFactory和ApplicationContext区别
+
+        特征|BeanFactory|ApplicationContext
+        --|--|--
+        Bean实例化/wiring|Yes|Yes
+        集成的生命周期管理|No|Yes
+        自动BeanPostProcessor注册|No|Yes
+        自动BeanFactoryPostProcessor注册|No|Yes
+        方便的消息源访问(用于内部化)|No|Yes
+        内置的ApplicationEvent发布机制|No|Yes
+
+原文：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#spring-core 
