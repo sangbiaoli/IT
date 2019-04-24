@@ -1876,8 +1876,202 @@
         }
         ```
 
-
 13. 环境抽象
+
+    环境接口是集成在容器中的抽象，它对应用程序环境的两个关键方面建模:profiles(概要文件)和properties(属性)。
+
+    profile是一个命名的bean定义逻辑组，只有在给定概要文件处于活动状态时才向容器注册。
+
+    properties在几乎所有的应用程序中都扮演着重要的角色，它可能来自各种各样的源:属性文件、JVM系统属性、系统环境变量、JNDI、servlet上下文参数、特殊属性对象、映射对象等等。
+
+    1. Bean定义概要文件
+
+        Bean定义概要文件在核心容器中提供了一种机制，允许在不同的环境中注册不同的Bean。
+
+        * 在开发中处理内存中的数据源，而在QA或生产中从JNDI查找相同的数据源。
+        * 只有在将应用程序部署到性能环境中时才注册监视基础设施。
+        * 为客户A和客户B的部署注册bean的定制实现。
+
+        考虑实际应用程序中需要数据源，测试环境中是要使用standaloneDataSource。
+
+        ```java
+        @Bean("dataSource")
+        public DataSource standaloneDataSource() {
+            return new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.HSQL)
+                .addScript("classpath:com/bank/config/sql/schema.sql")
+                .addScript("classpath:com/bank/config/sql/test-data.sql")
+                .build();
+        }
+        ```
+
+        生产环境中是要使用jndiDataSource。
+
+        ```java
+        @Bean("dataSource")
+        public DataSource jndiDataSource() throws Exception {
+            Context ctx = new InitialContext();
+            return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+        }
+        ```
+
+        * 使用@Profile
+
+            为了适配两种环境选取不同的数据源，可以用@Profile标签
+
+            ```java
+            @Configuration
+            public class AppConfig {
+
+                @Bean("dataSource")
+                @Profile("development") //@1
+                public DataSource standaloneDataSource() {
+                    return new EmbeddedDatabaseBuilder()
+                        .setType(EmbeddedDatabaseType.HSQL)
+                        .addScript("classpath:com/bank/config/sql/schema.sql")
+                        .addScript("classpath:com/bank/config/sql/test-data.sql")
+                        .build();
+                }
+                ```
+
+                ```java
+                @Bean("dataSource")
+                @Profile("production") //@2
+                public DataSource jndiDataSource() throws Exception {
+                    Context ctx = new InitialContext();
+                    return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+                }
+            }
+            ```
+
+            @1 standaloneDataSource只在开发概要文件中有效。
+
+            @2 jndiDataSource只在生产概要文件中有效。
+
+        * xml定义概要文件
+
+            ```xml
+            <beans xmlns="http://www.springframework.org/schema/beans"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+                xmlns:jee="http://www.springframework.org/schema/jee"
+                xsi:schemaLocation="...">
+
+                <!-- other bean definitions -->
+
+                <beans profile="development">
+                    <jdbc:embedded-database id="dataSource">
+                        <jdbc:script location="classpath:com/bank/config/sql/schema.sql"/>
+                        <jdbc:script location="classpath:com/bank/config/sql/test-data.sql"/>
+                    </jdbc:embedded-database>
+                </beans>
+
+                <beans profile="production">
+                    <jee:jndi-lookup id="dataSource" jndi-name="java:comp/env/jdbc/datasource"/>
+                </beans>
+            </beans>
+            ```
+
+        * 激活概要文件
+
+            ```java
+            AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+            ctx.getEnvironment().setActiveProfiles("development");
+            ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class);
+            ctx.refresh();
+            ```
+
+        * 默认概要文件
+
+            默认配置文件表示默认启用的配置文件。
+
+            ```java
+            @Configuration
+            @Profile("default")
+            public class DefaultDataConfig {
+
+                @Bean
+                public DataSource dataSource() {
+                    return new EmbeddedDatabaseBuilder()
+                        .setType(EmbeddedDatabaseType.HSQL)
+                        .addScript("classpath:com/bank/config/sql/schema.sql")
+                        .build();
+                }
+            }
+            ```
+
+    2. PropertySource抽象
+
+        * 查找属性
+
+            Spring的环境抽象在可配置的属性源层次结构上提供搜索操作。
+
+            ```java
+            ApplicationContext ctx = new GenericApplicationContext();
+            Environment env = ctx.getEnvironment();
+            boolean containsMyProperty = env.containsProperty("my-property");
+            System.out.println("Does my environment contain the 'my-property' property? " + containsMyProperty);
+            ```
+
+            在前面的代码片段中，我们看到了询问Spring是否为当前环境定义了my-property属性的高级方法。为了回答这个问题，环境对象对一组PropertySource对象执行搜索。
+            
+            PropertySource是对任何键值对源的简单抽象，Spring的StandardEnvironment配置了两个PropertySource对象
+
+            * 一个表示JVM系统属性集(System.getproperties())
+            * 另一个表示系统环境变量集(System.getenv())。
+
+        
+        * 执行的搜索是分层的
+        
+            默认情况下，系统属性优先于环境变量。
+
+            对于一个通用的StandardServletEnvironment，完整的层次结构如下，最高优先级的条目位于顶部:
+
+            1. ServletConfig参数(如果适用——例如，对于DispatcherServlet上下文)
+            2. ServletContext参数(web.xml context-param条目)
+            3. JNDI环境变量(java:comp/env/ entries)
+            4. JVM系统属性(-D命令行参数)
+            5. JVM系统环境(操作系统环境变量)
+
+        * 自定义属性
+        
+            整个机制是可配置的。想要集成到此搜索中的自定义属性源。为此，需要实现并实例化自己的PropertySource，并将其添加到当前环境的PropertySource集合中。
+
+            ```java
+            ConfigurableApplicationContext ctx = new GenericApplicationContext();
+            MutablePropertySources sources = ctx.getEnvironment().getPropertySources();
+            sources.addFirst(new MyPropertySource());
+            ```
+    
+    3. 使用@PropertySource
+
+        @PropertySource注释为向Spring的环境添加PropertySource提供了一种方便的声明性机制。
+
+        ```java
+        @Configuration
+        @PropertySource("classpath:/com/myco/app.properties")
+        public class AppConfig {
+
+            @Autowired
+            Environment env;
+
+            @Bean
+            public TestBean testBean() {
+                TestBean testBean = new TestBean();
+                testBean.setName(env.getProperty("testbean.name"));
+                return testBean;
+            }
+        }
+        ```
+
+    4. 语句中的占位符解析
+
+        ```xml
+        <beans>
+            <import resource="com/bank/service/${customer}-config.xml"/>
+        </beans>
+        ```
+
 14. 注册一个LoadTimeWeaver
 15. ApplicationContext附加功能
 16. BeanFactory
