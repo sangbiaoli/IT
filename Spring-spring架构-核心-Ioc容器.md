@@ -2073,7 +2073,279 @@
         ```
 
 14. 注册一个LoadTimeWeaver
+
+    Spring使用LoadTimeWeaver在类加载到Java虚拟机(JVM)时动态地转换它们。
+    要启用加载时weaving，可以将@EnableLoadTimeWeaving添加到@Configuration类中
+
+    ```java
+    @Configuration
+    @EnableLoadTimeWeaving
+    public class AppConfig {
+
+    }
+    ```
+
+    也可以用xml方式
+
+    ```xml
+    <beans>
+        <context:load-time-weaver/>
+    </beans>
+    ```
+
+    一旦为ApplicationContext配置好，该ApplicationContext中的任何bean都可以实现LoadTimeWeaverAware，从而接收对加载时weaver实例的引用。这在与Spring的JPA支持相结合时特别有用，因为加载时weaving可能是JPA类转换所必需的。
+
 15. ApplicationContext附加功能
+
+    为了以更面向框架的方式增强BeanFactory功能，上下文包还提供了以下功能:
+    
+    * 通过MessageSource接口访问i18n样式的消息。
+    * 通过ResourceLoader接口访问资源，例如url和文件。
+    * 事件发布，即通过使用ApplicationEventPublisher接口实现ApplicationListener接口的bean。
+    * 加载多个(分层的)上下文，通过分层的beanfactory接口让每个上下文都集中于一个特定的层，例如应用程序的web层。
+
+    1. 使用MessageSource国际化
+
+        ApplicationContext接口扩展了一个名为MessageSource的接口，因此提供了国际化(“i18n”)功能。MessageSource接口定义如下
+
+        方法|说明
+        ---|---
+        String getMessage(String code, Object[] args, String default, Locale loc)|用于从MessageSource检索消息的基本方法。如果没有找到指定区域设置的消息，则使用默认消息。使用标准库提供的MessageFormat功能，传入的任何参数都将成为替换值。
+        String getMessage(String code, Object[] args, Locale loc)|本质上与前面的方法相同，但有一点不同:不能指定默认消息。如果找不到消息，则抛出NoSuchMessageException。
+        String getMessage(MessageSourceResolvable resolvable, Locale locale)|前面方法中使用的所有属性都封装在一个名为MessageSourceResolvable的类中，您可以使用这个方法。
+
+        ApplicationContext加载完后会在上下文自动查找MessageSource，查找顺序：
+
+        1. 有没有名字为messageSource的bean，有则返回，没有则2
+        2. ApplicationContext往父容器上查找，有则返回，没有则3
+        3. 初始化一个空的DelegatingMessageSource并返回。
+
+        Spring提供了两种MessageSource实现，ResourceBundleMessageSource和StaticMessageSource。它们都实现了分层的messagesource，以便执行嵌套消息传递。很少使用StaticMessageSource，但它提供了向源添加消息的编程方法。
+        
+        ![](spring/spring-core-ioc-container-MessageSource.png)
+
+        ```xml
+        <beans>
+            <bean id="messageSource"
+                    class="org.springframework.context.support.ResourceBundleMessageSource">
+                <property name="basenames">
+                    <list>
+                        <value>format</value>
+                        <value>exceptions</value>
+                        <value>windows</value>
+                    </list>
+                </property>
+            </bean>
+        </beans>
+        ```
+
+        假设您的类路径中定义了三个名为format、exceptions和windows的资源包。
+
+        ```
+        # in format.properties
+        message=Alligators rock!
+        ```
+
+        ```
+        # in exceptions.properties
+        argument.required=The {0} argument is required.
+        ```
+
+        ```java
+        public static void main(String[] args) {
+            MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+            String message = resources.getMessage("message", null, "Default", null);
+            System.out.println(message);
+        }
+        ```
+
+        输出结果
+        
+        ```java
+        Alligators rock!
+        ```
+
+    2. 标准和自定义事件
+
+        ApplicationContext中的事件处理是通过ApplicationEvent类和ApplicationListener接口提供的。
+        
+        如果将实现ApplicationListener接口的bean部署到上下文中，每当将ApplicationEvent发布到ApplicationContext时，就会通知该bean。本质上，这是标准的观察者设计模式。
+
+        Spring提供的标准事件
+
+        事件|解释
+        --|--
+        ContextRefreshedEvent|在初始化或刷新ApplicationContext时发布(例如，通过在ConfigurableApplicationContext接口上使用refresh()方法)。
+        ContextStartedEvent|通过在ConfigurableApplicationContext接口上使用start()方法启动ApplicationContext时发布。这里，“started”意味着所有生命周期bean都接收一个显式的start信号。
+        ContextStoppedEvent|通过在ConfigurableApplicationContext接口上使用stop()方法停止ApplicationContext时发布。这里，“stop”意味着所有生命周期bean都接收一个显式的stop信号。
+        ContextClosedEvent|通过在ConfigurableApplicationContext接口上使用close()方法关闭ApplicationContext时发布。这里，“closed”意味着销毁所有单例bean。
+        RequestHandledEvent|一个特定于web的事件，通知所有bean HTTP请求已得到服务。此事件在请求完成后发布。
+
+        * 自定义事件
+
+            ![](spring/spring-core-ioc-container-custom-event.png)
+
+
+            1. 定义一个扩展Spring的ApplicationEvent的黑名单事件类
+
+                ```java
+                public class BlackListEvent extends ApplicationEvent {
+
+                    private final String address;
+                    private final String content;
+
+                    public BlackListEvent(Object source, String address, String content) {
+                        super(source);
+                        this.address = address;
+                        this.content = content;
+                    }
+
+                    // accessor and other methods...
+                }
+                ```
+            
+            2. 定义一个实现ApplicationEventPublisherAware的类，并且特定业务中(比如发邮件)注册自定义事件
+
+                ```java
+                public class EmailService implements ApplicationEventPublisherAware {
+
+                    private List<String> blackList;
+                    private ApplicationEventPublisher publisher;
+
+                    public void setBlackList(List<String> blackList) {
+                        this.blackList = blackList;
+                    }
+
+                    public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
+                        this.publisher = publisher;
+                    }
+
+                    public void sendEmail(String address, String content) {
+                        if (blackList.contains(address)) {
+                            publisher.publishEvent(new BlackListEvent(this, address, content));
+                            return;
+                        }
+                        // send email...
+                    }
+                }
+                ```
+
+            3. 定义一个实现ApplicationListener的类，接收定制的ApplicationEvent
+
+                ```java
+                public class BlackListNotifier implements ApplicationListener<BlackListEvent> {
+
+                    private String notificationAddress;
+
+                    public void setNotificationAddress(String notificationAddress) {
+                        this.notificationAddress = notificationAddress;
+                    }
+
+                    public void onApplicationEvent(BlackListEvent event) {
+                        // notify appropriate parties via notificationAddress...
+                    }
+                }
+                ```
+
+            EmailService和BlackListNotifier的xml定义
+
+            ```xml
+            <bean id="emailService" class="example.EmailService">
+                <property name="blackList">
+                    <list>
+                        <value>known.spammer@example.org</value>
+                        <value>known.hacker@example.org</value>
+                        <value>john.doe@example.org</value>
+                    </list>
+                </property>
+            </bean>
+
+            <bean id="blackListNotifier" class="example.BlackListNotifier">
+                <property name="notificationAddress" value="blacklist@example.org"/>
+            </bean>
+            ```
+
+            总之，当调用emailService bean的sendEmail()方法时，如果有任何电子邮件消息应该被列入黑名单，则会发布BlackListEvent类型的自定义事件。blackListNotifier bean注册为ApplicationListener并接收BlackListEvent，此时它可以通知相关方。
+
+        * 基于注解的事件监听器
+
+            从Spring 4.2开始，您可以使用EventListener注释在托管bean的任何公共方法上注册事件侦听器。黑名单通知程序可以重写如下:
+
+            ```java
+            public class BlackListNotifier {
+
+                private String notificationAddress;
+
+                public void setNotificationAddress(String notificationAddress) {
+                    this.notificationAddress = notificationAddress;
+                }
+
+                @EventListener
+                public void processBlackListEvent(BlackListEvent event) {
+                    // notify appropriate parties via notificationAddress...
+                }
+            }
+            ```
+
+        * 异步监听器
+
+            如果希望特定的侦听器异步处理事件，可以重用常规的@Async支持。
+
+            ```java
+            @EventListener
+            @Async
+            public void processBlackListEvent(BlackListEvent event) {
+                // BlackListEvent is processed in a separate thread
+            }
+            ```
+
+            使用异步事件时要注意以下限制:
+            * 如果事件侦听器抛出异常，则不会将其传播给调用者，请参阅AsyncUncaughtExceptionHandler了解更多细节。
+            * 此类事件侦听器无法发送响应。如果您需要作为处理的结果发送另一个事件，请注入ApplicationEventPublisher手动发送事件。
+
+        * 有序监听器
+
+            如果需要在调用另一个侦听器之前调用一个侦听器，可以在方法声明中添加@Order注释
+
+            ```java
+            @EventListener
+            @Order(42)
+            public void processBlackListEvent(BlackListEvent event) {
+                // notify appropriate parties via notificationAddress...
+            }
+            ```
+
+    3. 方便地访问底层资源
+
+        为了最佳地使用和理解应用程序上下文，您应该熟悉Spring的资源抽象。
+
+        应用程序上下文是ResourceLoader，可用于加载资源对象。资源本质上是JDK java.net.URL类的一个功能更丰富的版本。实际上，资源的实现在适当的地方封装了java.net.URL的实例。资源可以以透明的方式从几乎任何位置获得底层资源，包括类路径、文件系统位置、任何可以用标准URL描述的位置，以及其他一些变体。
+        
+        这里先跳过，再开专门章节学习。
+
+    4. 方便的Web应用程序的ApplicationContext实例化
+        
+        您可以通过使用ContextLoader(例如)声明式地创建ApplicationContext实例。当然，您也可以通过使用ApplicationContext实现之一以编程方式创建ApplicationContext实例。
+        
+        您可以使用ContextLoaderListener注册一个ApplicationContext。
+
+        ```xml
+        <context-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-value>
+        </context-param>
+
+        <listener>
+            <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+        </listener>
+        ```
+
+    5. 将Spring ApplicationContext部署为Java EE RAR文件
+
+        可以将Spring ApplicationContext部署为RAR文件，将上下文及其所需的所有bean类和库jar封装在Java EE RAR部署单元中。这相当于引导一个独立的ApplicationContext(仅托管在Java EE环境中)，使其能够访问Java EE服务器设施。
+        
+        RAR部署是部署无头WAR文件的一个更自然的替代方案——实际上，没有任何HTTP入口点的WAR文件只用于在JavaEE环境中引导Spring ApplicationContext。
+
 16. BeanFactory
 
 原文：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#spring-core
