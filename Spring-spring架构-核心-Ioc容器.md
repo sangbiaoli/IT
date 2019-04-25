@@ -2363,4 +2363,63 @@
         方便的消息源访问(用于内部化)|No|Yes
         内置的ApplicationEvent发布机制|No|Yes
 
+
+
+17. 注解汇总
+
+    
+    除了spring注解，平时也会用到jdk自带注解，一个注解基本都用到三个基本注解
+
+    * @Documented
+    * @Target，ElementType枚举类型
+        * TYPE
+        * FIELD
+        * METHOD
+        * PARAMETER
+        * CONSTRUCTOR
+        * LOCAL_VARIABLE
+        * ANNOTATION_TYPE
+        * PACKAGE
+        * TYPE_PARAMETER
+        * TYPE_USE
+    * @Retention，RetentionPolicy枚举类型
+        * SOURCE
+        * CLASS
+        * RUNTIME
+    
+    下面列出两者常用的注解图，并就本章所涉及的注解做个统一简单的汇总。
+
+    1. spring注解图
+
+        ![](dia/Spring-framework-annotation.png)
+
+        注解名称|@Documented|@Target|@Retention|说明
+        --|--|--|--|--|--|--
+        AliasFor|*|METHOD|RUNTIME|用于为注释属性声明别名
+        Qualifier|*|FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE|RUNTIME|当自动装配时，该注释可以作为候选bean的限定符用于字段或参数。
+        Value|*|FIELD, METHOD, PARAMETER, ANNOTATION_TYPE|RUNTIME|该参数指示受影响参数的默认值表达式
+        Required||METHOD|RUNTIME|将方法(通常是JavaBean setter方法)标记为“required”:即必须将setter方法配置为依赖注入值。
+        Autowired|*|CONSTRUCTOR, METHOD, PARAMETER, FIELD, ANNOTATION_TYPE}|RUNTIME|将构造函数、字段、setter方法或配置方法标记为由Spring的依赖项注入工具生成的。
+        ComponentScan|*|TYPE|RUNTIME|配置组件扫描指令，以便与@Configuration类一起使用。
+        Configuration|*|TYPE|RUNTIME|指示类声明一个或多个@Bean方法，并可能由Spring容器处理，以便在运行时为这些bean生成bean定义和服务请求
+        Bean|*|METHOD, ANNOTATION_TYPE|RUNTIME|指示一个方法生成要由Spring容器管理的bean。
+        Primary|*|TYPE, METHOD|RUNTIME|指示当多个候选项有资格自动连接单值依赖项时，应优先考虑bean。如果在候选bean中只存在一个“primary”bean，那么它就是自动获取的值。
+        Component|*|TYPE|RUNTIME|指示带注释的类是“组件”。当使用基于注释的配置和类路径扫描时，这些类被认为是自动检测的候选类。
+        Controller|*|TYPE|RUNTIME|指示带注释的类是“控制器”(例如web控制器)。
+        Service|*|TYPE|RUNTIME|表示一个带注释的类是一个“服务”，最初由Domain-DrivenDesign (Evans, 2003)定义为“一个操作作为一个独立于模型的接口提供，没有封装状态”。
+        Repository|*|TYPE|RUNTIME|表示带注释的类是“存储库”，最初由域驱动设计(Evans, 2003)定义为“一种封装存储、检索和搜索行为的机制，模拟对象集合”。
+        RestController|*|TYPE|RUNTIME|A convenience annotation that is itself annotated with @Controller and @ResponseBody.
+        ResponseBody|*|TYPE|RUNTIME|表示方法返回值的注释应该绑定到web响应体。支持Servlet环境中带注释的处理程序方法
+
+    2. jdk注解图
+
+        ![](dia/jdk-annotation.png)
+
+        注解名称|@Documented|@Target|@Retention|说明
+        --|--|--|--|--|--|--
+        Resource|*|TYPE, FIELD, METHOD|RUNTIME|资源注释标记应用程序需要的资源。
+        PostConstruct|*|METHOD|RUNTIME|PostConstruct注释用于一个方法，该方法需要在依赖项注入完成后执行，以执行任何初始化。
+        PreDestroy|*|METHOD|RUNTIME|PreDestroy注释用于方法上，作为回调通知，通知实例正在被容器删除。
+        Resources|*|TYPE|RUNTIME|该类用于允许多个资源声明。
+
 原文：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#spring-core 
