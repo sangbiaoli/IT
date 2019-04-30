@@ -150,5 +150,102 @@
 
 6. 资源依赖关系
 
+    如果bean本身要通过某种动态过程来确定和提供资源路径，那么使用ResourceLoader接口来加载资源可能是有意义的。例如，考虑加载某种类型的模板，其中需要的特定资源取决于用户的角色。
+
+    然后注入这些属性非常简单，因为所有应用程序上下文都注册并使用一个特殊的JavaBeans PropertyEditor，它可以将字符串路径转换为资源对象。因此，如果myBean具有Resource类型的模板属性，则可以为该资源配置一个简单的字符串。
+
+    ```xml
+    <bean id="myBean" class="...">
+        <property name="template" value="some/resource/path/myTemplate.txt"/>
+    </bean>
+    ```
+
+    如果需要强制使用特定的资源类型，可以使用前缀。下面两个例子展示了如何强制ClassPathResource和UrlResource(后者用于访问文件系统文件)
+
+    ```xml
+    <property name="template" value="classpath:some/resource/path/myTemplate.txt">
+    ```
+
+    ```xml
+    <property name="template" value="file:///some/resource/path/myTemplate.txt"/>
+    ```
+
 7. 应用程序上下文和资源路径
+
+    本节介绍如何使用资源创建应用程序上下文，包括使用XML的快捷方式、如何使用通配符和其他细节。
+
+    1. 构造应用上下文
+
+        应用程序上下文构造函数(针对特定的应用程序上下文类型)通常将字符串或字符串数组作为资源的位置路径
+
+        比如加载ClassPath的配置文件
+
+        ```java
+        ApplicationContext ctx = new ClassPathXmlApplicationContext("conf/appContext.xml");
+        ```
+
+        或者加载文件系统的配置文件
+
+        ```java
+        ApplicationContext ctx = new FileSystemXmlApplicationContext("classpath:conf/appContext.xml");
+        ```
+
+        如果是这样的层级结构
+
+        ```
+        com/
+            foo/
+                services.xml
+                daos.xml
+                MessengerService.class
+        ```
+
+        可以这样加载
+
+        ```java
+        ApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] {"services.xml", "daos.xml"}, MessengerService.class);
+        ```
+
+    2. 应用程序上下文构造函数资源路径中的通配符
+
+        应用程序上下文构造函数值中的资源路径可以是简单的路径(如前面所示)，每个路径都有到目标资源的一对一映射，或者可以包含特殊的“classpath*:”前缀或内部ant样式的正则表达式(通过使用Spring的PathMatcher实用程序进行匹配)。后者都是有效的通配符。
+
+        **注意，这种通配符特定于在应用程序上下文构造函数中使用资源路径(或者直接使用PathMatcher实用程序类层次结构时)，并在构造时解析。它与资源类型本身无关。您不能使用classpath*:前缀来构造实际的资源，因为资源每次只指向一个资源。**
+
+        Ant风格模式
+
+        ```
+        /WEB-INF/*-context.xml
+        com/mycompany/**/applicationContext.xml
+        file:C:/some/path/*-context.xml
+        classpath:com/mycompany/**/applicationContext.xml
+        ```
+    
+    3. FileSystemResource警告
+
+        FileSystemResource没有附加到FileSystemApplicationContext(也就是说，当FileSystemApplicationContext不是实际的ResourceLoader时)的文件系统资源按照您的期望处理绝对路径和相对路径。
+        
+        相对路径相对于当前工作目录，而绝对路径相对于文件系统的根。下面两者等价
+
+        ```java
+        ApplicationContext ctx = new FileSystemXmlApplicationContext("conf/context.xml");
+        ```
+
+        ```java
+        ApplicationContext ctx = new FileSystemXmlApplicationContext("/conf/context.xml");
+        ```
+
+        在实践中，如果需要真正的绝对文件系统路径，应该避免将绝对路径与FileSystemResource或FileSystemXmlApplicationContext一起使用，并使用file: URL前缀强制使用UrlResource。
+
+        ```java
+        // actual context type doesn't matter, the Resource will always be UrlResource
+        ctx.getResource("file:///some/resource/path/myTemplate.txt");
+        ```
+
+        ```java
+        // force this FileSystemXmlApplicationContext to load its definition via a UrlResource
+        ApplicationContext ctx = new FileSystemXmlApplicationContext("file:///conf/context.xml");
+        ```
+
+参考：https://docs.spring.io/spring/docs/5.1.6.RELEASE/spring-framework-reference/core.html#resources
 
