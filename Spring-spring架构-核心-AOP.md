@@ -1032,6 +1032,25 @@ Spring的一个关键组件是AOP框架。虽然Spring IoC容器不依赖AOP(这
         
 9. @AspectJ代理的编程创建
 
+    除了通过使用\<aop:config>或\<aop:aspectj-autoproxy>在配置中声明方面之外，还可以通过编程创建通知目标对象的代理。
+
+    您可以使用org.springframework.aop.aspectj.annotation。AspectJProxyFactory类来为一个或多个@AspectJ方面建议的目标对象创建代理。这个类的基本用法很简单，如下例所示:
+
+    ```java
+    // create a factory that can generate a proxy for the given target object
+    AspectJProxyFactory factory = new AspectJProxyFactory(targetObject);
+
+    // add an aspect, the class must be an @AspectJ aspect
+    // you can call this as many times as you need with different aspects
+    factory.addAspect(SecurityManager.class);
+
+    // you can also add existing aspect instances, the type of the object supplied must be an @AspectJ aspect
+    factory.addAspect(usageTracker);
+
+    // now get the proxy object...
+    MyInterfaceType proxy = factory.getProxy();
+    ```
+
 10. 在Spring应用程序中使用AspectJ
 
     1. Spring中使用AspectJ来依赖注入域对象
