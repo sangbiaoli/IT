@@ -523,7 +523,162 @@
             ```
     
     3. 日期时间文字
-    
+
+        Oracle数据库支持四种datetime数据类型:DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, 和TIMESTAMP WITH LOCAL TIME ZONE.
+
+        1. Date文字
+
+            可以将DATE值指定为字符串文字，也可以使用TO_DATE函数将字符或数值转换为日期值。DATE文字是Oracle数据库接受TO_DATE表达式代替字符串文字的唯一情况。
+            要将DATE值指定为文字值，必须使用公历。您可以指定一个ANSI文字，如下例所示:
+
+            ```sql
+            DATE '1998-12-25'
+            ```
+
+            ANSI日期文字不包含时间部分，必须以“YYYY-MM-DD”格式指定。或者，您可以指定Oracle日期值，如下面的示例所示:
+
+            ```sql
+            TO_DATE('98-DEC-25 17:30','YY-MON-DD HH24:MI')
+            ```
+
+            Oracle DATE值的默认日期格式由初始化参数NLS_DATE_FORMAT指定。这个示例日期格式包括一个表示月份的日期的两位数、月份名称的缩写、一年的最后两位数字和一个24小时时间指定。
+            
+            当在日期表达式中使用默认日期格式的字符值时，Oracle会自动将其转换为日期值。
+
+            如果指定一个没有时间组件的日期值，则默认时间为午夜(分别为24小时和12小时的时钟时间，为00:00:00或12:00:00)。如果指定的日期值没有日期，则默认日期是当前月份的第一天。
+
+            Oracle日期列总是同时包含日期和时间字段。因此，如果查询DATE列，则必须在查询中指定时间字段，或者确保将日期列中的时间字段设置为midnight。否则，Oracle可能不会返回您期望的查询结果。可以使用TRUNC date函数将时间字段设置为midnight，也可以在查询中包含大于或小于条件，而不是相等或不等条件。
+            
+            下面是一些例子，假设一个表my_table有一个数字列row_num和一个DATE列datecol:
+
+            
+            ```sql
+            INSERT INTO my_table VALUES (1, SYSDATE);
+            INSERT INTO my_table VALUES (2, TRUNC(SYSDATE));
+
+            SELECT *
+            FROM my_table;
+
+            ROW_NUM DATECOL
+            ---------- ---------
+                    1 03-OCT-02
+                    2 03-OCT-02
+
+            SELECT *
+            FROM my_table
+            WHERE datecol > TO_DATE('02-OCT-02', 'DD-MON-YY');
+
+            ROW_NUM DATECOL
+            ---------- ---------
+                    1 03-OCT-02
+                    2 03-OCT-02
+
+            SELECT *
+            FROM my_table
+            WHERE datecol = TO_DATE('03-OCT-02','DD-MON-YY');
+
+            ROW_NUM DATECOL
+            ---------- ---------
+                    2 03-OCT-02
+            ```
+
+             如果您知道DATE列的时间字段设置为midnight，那么您可以查询DATE列，如下面的示例所示，或者使用DATE文字:
+
+            ```sql
+            SELECT *
+            FROM my_table
+            WHERE datecol = DATE '2002-10-03';
+
+
+            ROW_NUM DATECOL
+            ---------- ---------
+                    2 03-OCT-02
+            ```
+
+            但是，如果DATE列包含midnight以外的值，则必须过滤查询中的时间字段以获得正确的结果。例如:
+
+            ```sql
+            SELECT *
+            FROM my_table
+            WHERE TRUNC(datecol) = DATE '2002-10-03';
+
+
+            ROW_NUM DATECOL
+            ---------- ---------
+                    1 03-OCT-02
+                    2 03-OCT-02
+            ```
+
+            Oracle将TRUNC函数应用于查询中的每一行，因此如果确保数据中时间字段的午夜值，性能会更好。要确保时间字段设置为午夜，请在插入和更新期间使用以下方法之一:
+
+            * Use the TO_DATE function to mask out the time fields:
+            
+            ```sql
+            INSERT INTO my_table
+            VALUES (3, TO_DATE('3-OCT-2002','DD-MON-YYYY'));
+            ```
+
+            * Use the DATE literal:
+
+            ```sql
+            INSERT INTO my_table
+            VALUES (4, '03-OCT-02');
+            ```
+
+            * Use the TRUNC function:
+
+            ```sql
+            INSERT INTO my_table
+            VALUES (5, TRUNC(SYSDATE));
+            ```
+
+            date函数SYSDATE返回当前系统日期和时间。函数CURRENT_DATE返回当前会话日期。有关SYSDATE、TO_* datetime函数和默认日期格式的信息。
+
+        2. TIMESTAMP文字
+
+            TIMESTAMP数据类型存储年、月、日、小时、分钟、秒和小数秒值。当您将时间戳指定为文字时，fractional_seconds_precision值可以是任意数字，最多可以是9，如下所示:
+
+            ```sql
+            TIMESTAMP '1997-01-31 09:26:50.124'
+
+            select * from my_table where datecol >= TIMESTAMP '1997-01-31 09:26:50.124'
+            ```
+
+        3. TIMESTAMP WITH TIME ZONE文字
+
+            TIMESTAMP WITH TIME ZONE是TIMESTAMP的变体，它包含时区区域名称或时区偏移量。当您将TIMESTAMP WITH TIME ZONE指定为文字时，fractional_seconds_precision值可以是任意数字，最多可以是9。例如:
+
+            ```sql
+            TIMESTAMP '1997-01-31 09:26:56.66 +02:00'
+            ```
+
+            如果两个TIMESTAMP WITH TIME ZONE在UTC中表示相同的时刻，则认为它们是相同的，而不考虑存储在数据中的TIME ZONE偏移量。例如,
+
+            ```sql
+            TIMESTAMP '1999-04-15 8:00:00 -8:00'
+            ```
+
+            与下面的一样
+
+            ```sql
+            TIMESTAMP '1999-04-15 11:00:00 -5:00'
+            ```
+
+            太平洋标准时间的上午8点是东部标准时间的上午11点。
+
+        4. TIMESTAMP WITH LOCAL TIME ZONE文字
+
+            TIMESTAMP WITH LOCAL TIME ZONE数据类型与IMESTAMP WITH TIME ZONE不同，因为存储在数据库中的数据被规范化为数据库时区。时区偏移量不作为列数据的一部分存储。对于本地时区，没有用于TIMESTAMP WITH LOCAL TIME ZONE的文字。相反，您可以使用任何其他有效的datetime文字来表示这种数据类型的值。下表显示了一些可以用来将值插入带有TIMESTAMP WITH LOCAL TIME ZONE的格式，以及查询返回的相应值。
+
+            插入语句的值|查询返回的值
+            --|--
+            '19-FEB-2004'|19-FEB-2004.00.00.000000 AM
+            SYSTIMESTAMP|19-FEB-04 02.54.36.497659 PM
+            TO_TIMESTAMP('19-FEB-2004', 'DD-MON-YYYY')|19-FEB-04 12.00.00.000000 AM
+            SYSDATE|19-FEB-04 02.55.29.000000 PM
+            TO_DATE('19-FEB-2004', 'DD-MON-YYYY')|19-FEB-04 12.00.00.000000 AM
+            TIMESTAMP'2004-02-19 8:00:00 US/Pacific'|19-FEB-04 08.00.00.000000 AM
+
     4. 时间间隔文字
 
 
