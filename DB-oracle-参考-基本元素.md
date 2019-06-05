@@ -681,7 +681,103 @@
 
     4. 时间间隔文字
 
+        interval文字指定一段时间。您可以用年、月或天、小时、分钟和秒来指定这些差异。Oracle数据库支持两种类型的间隔文字，YEAR TO MONTH和DAY TO SECOND。
+        
+        每种类型都包含一个前导字段，也可能包含一个尾部字段。前导字段定义了被度量的日期或时间的基本单位。尾部字段定义所考虑的基本单元的最小增量。例如，YEAR TO MONTH的间隔考虑年到最近月份的间隔。DAY TO MINUTE的间隔考虑天到最近分钟的间隔。
 
+        如果有数值形式的日期数据，则可以使用NUMTOYMINTERVAL或NUMTODSINTERVAL转换函数将数值数据转换为区间值。
+
+        区间文字主要用于分析函数。
+
+        1. INTERVAL YEAR TO MONTH
+
+            使用以下语法指定YEAR TO MONTH的间隔文字:
+
+            ![](db/db-oracle-reference-base_element-literals_interval_year_to_month.gif)
+
+            * 'integer [-integer]'为文字的开头和可选结尾字段指定整数值。如果前面的字段是YEAR，后面的字段是MONTH，那么MONTH字段的整数值范围是0到11。
+
+            * 精度是前导字段的最大位数。前导字段精度的有效范围是0到9，默认值是2。
+
+            **前导字段限制**
+
+            如果指定尾部字段，那么它的重要性必须小于引导字段。例如，从“0-1”月到年的间隔是无效的。
+
+            以下年份到月份的间隔文字表示时间间隔为123年2个月:
+
+            ```sql
+            INTERVAL '123-2' YEAR(3) TO MONTH
+            ```
+
+            其他形式的文字如下，包括一些缩略版本:
+
+            interval文字形式|解释
+            --|--
+            INTERVAL '123-2' YEAR(3) TO MONTH|间隔123年2个月。如果前导字段精度大于2位的默认值，则必须指定它。
+            INTERVAL '123' YEAR(3)|间隔123年0个月
+            INTERVAL '300' MONTH(3)|间隔30个月
+            INTERVAL '4' YEAR|映射为INTERVAL '4-0' YEAR TO MONTH，并表示4年
+            INTERVAL '50' MONTH|映射为INTERVAL '4-2' YEAR TO MONTH，并表示为50个月或4年2个月
+            INTERVAL '123' YEAR|返回一个错误，因为默认精度是2，而“123”有3位数字。
+
+            您可以将一个INTERVAL YEAR TO MONTH的文字添加或减去另一个INTERVAL YEAR TO MONTH的文字，例如:
+
+            ```sql
+            INTERVAL '5-3' YEAR TO MONTH + INTERVAL'20' MONTH = 
+            INTERVAL '6-11' YEAR TO MONTH
+            ```
+
+        2. INTERVAL DAY TO SECOND
+
+            使用以下语法指定DAY TO SECOND的间隔文字:
+
+            interval_day_to_second::=
+            
+            ![](db/db-oracle-reference-base_element-literals_interval_day_to_second.gif)
+
+            * integer指定天数。如果这个值包含的数字比领先精度指定的数字多，那么Oracle将返回一个错误。
+
+            * time_expr以HH[:MI[:SS[.n]]]或 MI[:SS[.n]] 或SS[.n]格式指定一个时间。，其中n表示秒的小数部分。如果n包含的数字比fractional_seconds_precision指定的数字多，则n四舍五入为fractional_seconds_precision值指定的数字。只有在前导字段为DAY时，才可以在整数和空格后面指定time_expr。
+
+            * leading_precision是前导字段中的位数。接受的值是0到9。默认值是2。
+
+            * fractional_seconds_precision是第二个datetime字段的小数部分的数字。接受的值是1到9。默认值是6。
+
+            **前导字段限制**
+
+            如果指定尾部字段，那么它的重要性必须小于引导字段。例如，INTERVAL MINUTE TO DAY是无效的。由于这个限制，如果SECOND是前置字段，那么interval文字就不能有任何尾部字段。
+            
+            尾部字段的有效取值范围如下:
+
+            * HOUR: 0 to 23
+            * MINUTE: 0 to 59
+            * SECOND: 0 to 59.999999999
+
+            以下是不同形式的INTERVAL DAY TO SECOND文字的例子，包括一些缩略版:
+
+            interval文字形式|解释
+            --|--
+            INTERVAL '4 5:12:10.222' DAY TO SECOND(3)	|4天5小时12分10秒222千分之一秒。
+            INTERVAL '4 5:12' DAY TO MINUTE	|4天5小时12分钟。
+            INTERVAL '400 5' DAY(3) TO HOUR	|400天5小时。
+            INTERVAL '400' DAY(3)	|400天
+            INTERVAL '11:12:10.2222222' HOUR TO SECOND(7)	|11小时12分钟10.2222222秒。
+            INTERVAL '11:20' HOUR TO MINUTE	|11小时20分钟。
+            INTERVAL '10' HOUR	|10小时
+            INTERVAL '10:22' MINUTE TO SECOND	|10分钟22秒
+            INTERVAL '10' MINUTE	|10分钟
+            INTERVAL '4' DAY	|4天
+            INTERVAL '25' HOUR	|25小时
+            INTERVAL '40' MINUTE	|40分钟
+            INTERVAL '120' HOUR(3)	|120小时
+            INTERVAL '30.12345' SECOND(2,4)	|30.1235秒。小数秒“12345”四舍五入为“1235”，因为精度是4。
+
+            您可以将一个DAY TO SECOND时间间隔加或减到另一个DAY TO SECOND时间间隔。例如：
+            
+            ```sql
+            INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND
+            ```
+            
 4. 格式的模型
 5. Null值
 6. 数据库对象
