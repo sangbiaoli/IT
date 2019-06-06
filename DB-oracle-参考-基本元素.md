@@ -988,6 +988,109 @@
         
     3. 格式模型修改器
 
+        在TO_CHAR函数的格式模型中使用的FM和FX修饰符控制空白填充和精确的格式检查。
+
+        格式模型中可以出现多个修饰符。在这种情况下，后面的每个事件都会切换修饰符的效果。它的效果在模型第一次出现后对模型的部分启用，然后对第二次出现后的部分禁用，然后对第三次出现后的部分重新启用，依此类推。
+
+        * FM
+
+            Fill mode。Oracle使用尾随空白字符和前导零来填充格式元素，使其宽度保持不变。宽度等于相关格式模型中最大元素的显示宽度:
+
+            * 数值元素由前导零填充到元素允许的最大值的宽度。例如，YYYY元素填充为四位(长度为'9999')，HH24填充为两位(长度为'23')，DDD填充为三位(长度为'366')。
+
+            * 字母元素元素MONTH,MON,DAY和DY的通过尾部填充空格达到最长的宽度：最长的月份全称，最长的月份名字缩写,最长的完整日期名称、或最长的日期名称缩写,这些有效的名称由NLS_DATE_LANGUAGE和NLS_CALENDAR参数的值所决定。
+            
+                例如，当NLS_DATE_LANGUAGE为AMERICAN而NLS_CALENDAR为GREGORIAN(缺省值)时，MONTH的最大元素是SEPTEMBER，因此MONTH format元素的所有值都被填充为9个显示字符。NLS_DATE_LANGUAGE和NLS_CALENDAR参数的值在TO_CHAR和TO_* datetime函数的第三个参数中指定，或者从当前会话的NLS环境中检索它们。
+            * 字符元素RM由尾随空格填充，长度为4，即“viii”的长度。
+            * 其他字符元素和拼出的数字(SP、SPTH和THSP后缀)没有填充。
+
+            FM修饰符在TO_CHAR函数的返回值中抑制上述填充。
+
+        * FX
+
+            Format exact。此修饰符为TO_DATE函数的字符参数和datetime格式模型指定精确匹配:
+            
+            * 字符参数中的标点符号和引用文本必须与格式模型的对应部分完全匹配(大小写除外)。
+            * 字符参数不能有额外的空格。如果没有FX, Oracle将忽略额外的空格。
+            * 字符参数中的数字数据必须具有与格式模型中相应元素相同的数字数目。如果没有* FX，字符参数中的数字可以省略前导零。
+            
+            启用FX时，还可以使用FM修饰符禁用对前导零的检查。
+
+            如果字符参数的任何部分违反了这些条件，那么Oracle将返回一条错误消息。
+
+        如果字符参数的任何部分违反了这些条件，那么Oracle将返回一条错误消息。
+
+        Format Model例子
+
+        下面的语句使用日期格式模型返回字符表达式:
+        
+        ```sql
+        SELECT TO_CHAR(SYSDATE, 'fmDDTH') || ' of ' ||
+            TO_CHAR(SYSDATE, 'fmMonth') || ', ' ||
+            TO_CHAR(SYSDATE, 'YYYY') "Ides" 
+        FROM DUAL; 
+
+        Ides 
+        ------------------ 
+        3RD of April, 2008
+        ```
+
+        前面的语句也使用FM修饰符。如果省略FM，则将月份空白填充为9个字符:
+
+        ```sql
+        SELECT TO_CHAR(SYSDATE, 'DDTH') || ' of ' ||
+        TO_CHAR(SYSDATE, 'Month') || ', ' ||
+        TO_CHAR(SYSDATE, 'YYYY') "Ides"
+        FROM DUAL; 
+
+        Ides 
+        ----------------------- 
+        03RD of April    , 2008 
+        ```
+
+        下面的语句使用包含两个连续单引号的日期格式模型在返回值中放置单引号:
+
+        ```sql
+        SELECT TO_CHAR(SYSDATE, 'fmDay') || '''s Special' "Menu"
+        FROM DUAL; 
+
+        Menu 
+        ----------------- 
+        Tuesday's Special 
+        ```
+
+        在格式模型中的字符文本中，可以使用两个连续的单引号实现相同的目的。
+
+        使用FX格式模型修改器匹配字符数据和格式模型
+
+        char|'fmt'|'Math or Error'
+        --|--|--
+        '15/ JAN /1998'	|	'DD-MON-YYYY'	|	Match
+        ' 15! JAN % /1998'	|	'DD-MON-YYYY'	|	Error
+        '15/JAN/1998'	|	'FXDD-MON-YYYY'	|	Error
+        '15-JAN-1998'	|	'FXDD-MON-YYYY'	|	Match
+        '1-JAN-1998'	|	'FXDD-MON-YYYY'	|	Error
+        '01-JAN-1998'	|	'FXDD-MON-YYYY'	|	Match
+        '1-JAN-1998'	|	'FXFMDD-MON-YYYY'	|	Match
+
+
+    4. String-to-Date转换规则
+
+        在将字符串值转换为日期值时应用以下附加格式规则(除非您在格式模型中使用了FX或FXFM修饰符来控制精确的格式检查):
+
+        * 如果指定了数字格式元素的所有数字(包括前导零)，则可以从日期字符串中省略格式字符串中包含的标点符号。例如，为两位数格式元素(如MM、DD和YY)指定02而不是2。
+        * 可以从日期字符串中省略格式字符串末尾的时间字段。
+        * 您可以在日期字符串中使用任何非字母数字字符来匹配格式字符串中的标点符号。
+        * 如果datetime格式元素和日期字符串中相应的字符匹配失败，Oracle将尝试使用其他格式元素，如表所示。
+
+        原始格式元素|尝试用其他格式元素替换原始格式元素
+        --|--
+        'MM'	|	'MON' and 'MONTH'
+        'MON	|	'MONTH'
+        'MONTH'	|	'MON'
+        'YY'	|	'YYYY'
+        'RR'	|	'RRRR'
+
 5. Null值
 6. 数据库对象
 7. 数据库对象名称和别名
