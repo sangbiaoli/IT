@@ -1092,8 +1092,105 @@
         'RR'	|	'RRRR'
 
 5. Null值
-6. 数据库对象
-7. 数据库对象名称和别名
-8. SQL语句中模式对象和部分的语法
+
+    如果一行中的一列没有值，那么该列就是null，或者包含null。空值可以出现在不受not NULL或主键完整性约束约束的任何数据类型的列中。当实际值未知或值没有意义时使用null。
+    
+    Oracle数据库将长度为零的字符值视为null。但是，不要使用null来表示0的数值，因为它们是不相等的。
+
+    1. 具有比较条件的Nulls
+
+        要测试空值，只使用比较条件IS NULL和IS NOT NULL。如果您使用任何其他带有null的条件，并且结果取决于null的值，那么结果是未知的。因为null表示缺乏数据，所以null不能等于或不等于任何值或另一个null。然而，Oracle在计算解码函数时认为两个null是相等的。有关语法和其他信息，请参阅DECODE。
+
+        如果两个null出现在复合键中，Oracle还认为它们是相等的。也就是说，如果键的所有非空组件都相等，Oracle认为包含null的两个复合键是相同的。
+
+    2. null的条件
+
+        求值为未知行为的条件几乎为FALSE。例如，在WHERE子句中带有条件的SELECT语句，其计算结果为UNKNOWN，则不返回任何行。然而，对未知条件的求值不同于FALSE，因为对未知条件求值的后续操作将求值为未知。因此，NOT FALSE求值为TRUE, but NOT UNKNOWN求值为UNKNOWN。
+
+        表显示了在条件中涉及null的各种计算示例。如果SELECT语句的WHERE子句中使用了对UNKNOWN求值的条件，则不会为该查询返回任何行。
+
+        条件|A的值|求值
+        --|--|--
+        a IS NULL	|	10	|	FALSE
+        a IS NOT NULL	|	10	|	TRUE
+        a IS NULL	|	NULL	|	TRUE
+        a IS NOT NULL	|	NULL	|	FALSE
+        a = NULL	|	10	|	UNKNOWN
+        a != NULL	|	10	|	UNKNOWN
+        a = NULL	|	NULL	|	UNKNOWN
+        a != NULL	|	NULL	|	UNKNOWN
+        a = 10	|	NULL	|	UNKNOWN
+        a != 10	|	NULL	|	UNKNOWN
+
+6. 注释
+
+    您可以创建两种类型的注释:
+    * SQL语句中的注释存储为执行SQL语句的应用程序代码的一部分。
+    * 与单个模式或非模式对象关联的注释连同对象本身的元数据一起存储在数据字典中。
+
+    1. SQL语句中的注释
+
+        注释可以使您的应用程序更容易阅读和维护。例如，可以在语句中包含一条注释，描述应用程序中语句的用途。除了提示之外，SQL语句中的注释不影响语句的执行。
+
+        语句中的任何关键字、参数或标点符号之间都可以出现注释。你可以用两种方式在一个语句中包含一条注释:
+
+        * 以斜杠和星号(/\*)开始注释。继续评论的文本。此文本可以跨多行。用星号和斜杠(*/)结束注释。开始和结束字符不需要用空格或换行符与文本分开。
+        * 以——(两个连字符)开始评论。继续注释的文本。此文本不能扩展到新行。用换行符结束注释。
+        
+        一些用于输入SQL的工具有额外的限制。例如，如果使用SQL*Plus，默认情况下，在多行注释中不能有空行。有关更多信息，请参考作为数据库接口使用的工具的文档。
+        一个SQL语句可以包含两种风格的多个注释。注释的文本可以包含数据库字符集中的任何可打印字符。
+
+        例如，这些声明包含许多注释:
+
+        ```sql
+        SELECT last_name, employee_id, salary + NVL(commission_pct, 0), 
+            job_id, e.department_id
+        /* Select all employees whose compensation is
+        greater than that of Pataballa.*/
+        FROM employees e, departments d
+        /*The DEPARTMENTS table is used to get the department name.*/
+        WHERE e.department_id = d.department_id
+            AND salary + NVL(commission_pct,0) >   /* Subquery:       */
+            (SELECT salary + NVL(commission_pct,0)
+                /* total compensation is salary + commission_pct */
+                FROM employees 
+                WHERE last_name = 'Pataballa')
+        ORDER BY last_name, employee_id;
+
+        SELECT last_name,                                   -- select the name
+            employee_id                                  -- employee id
+            salary + NVL(commission_pct, 0),             -- total compensation
+            job_id,                                      -- job
+            e.department_id                              -- and department
+        FROM employees e,                                 -- of all employees
+            departments d
+        WHERE e.department_id = d.department_id
+            AND salary + NVL(commission_pct, 0) >           -- whose compensation 
+                                                            -- is greater than
+                (SELECT salary + NVL(commission_pct,0)      -- the compensation
+                FROM employees 
+                WHERE last_name = 'Pataballa')            -- of Pataballa
+        ORDER BY last_name                                -- and order by last name
+                employee_id                              -- and employee id.
+        ;
+        ```
+
+    2. 对模式和非模式对象的注释
+
+        您可以使用COMMENT命令将注释与模式对象(表、视图、实体化视图、操作符、索引类型、挖掘模型)或非模式对象(edition)关联起来。还可以在列上创建注释，列是表模式对象的一部分。与模式和非模式对象关联的注释存储在数据字典中。
+
+    3. 提示
+
+        提示是SQL语句中的注释，它将指令传递给Oracle数据库优化器。优化器使用这些提示为语句选择执行计划，除非存在某些条件阻止优化器这样做。
+
+        在Oracle7中引入了提示，当优化器生成非最优计划时，用户几乎没有资源。现在Oracle提供了许多工具，包括SQL Tuning Advisor、SQL plan management和SQL Performance Analyzer，以帮助您解决优化器无法解决的性能问题。Oracle强烈建议您使用这些工具而不是提示。这些工具比提示优越得多，因为在持续使用的基础上，随着数据和数据库环境的变化，它们提供了新的解决方案。
+
+        提示应该谨慎使用，并且只有在您收集了相关表的统计信息并在没有使用EXPLAIN plan语句提示的情况下评估优化器计划之后才使用提示。更改数据库条件以及在后续版本中增强查询性能会对代码中的提示如何影响性能产生重大影响。
+
+        如果您决定使用提示而不是更高级的调优工具，请注意，从长期来看，使用提示所带来的任何短期好处可能不会继续导致性能的提高。（跳过）。
+
+7. 数据库对象
+8. 数据库对象名称和别名
+9. SQL语句中模式对象和部分的语法
 
 原文：https://docs.oracle.com/database/121/SQLRF/sql_elements001.htm#SQLRF50998
