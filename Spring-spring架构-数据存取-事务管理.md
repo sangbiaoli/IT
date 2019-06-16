@@ -489,6 +489,329 @@
         </beans>
         ```
 
+        下面的例子展示了如何用完全不同的事务设置配置两个不同的bean:
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:aop="http://www.springframework.org/schema/aop"
+            xmlns:tx="http://www.springframework.org/schema/tx"
+            xsi:schemaLocation="
+                http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/tx
+                https://www.springframework.org/schema/tx/spring-tx.xsd
+                http://www.springframework.org/schema/aop
+                https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+            <aop:config>
+
+                <aop:pointcut id="defaultServiceOperation"
+                        expression="execution(* x.y.service.*Service.*(..))"/>
+
+                <aop:pointcut id="noTxServiceOperation"
+                        expression="execution(* x.y.service.ddl.DefaultDdlManager.*(..))"/>
+
+                <aop:advisor pointcut-ref="defaultServiceOperation" advice-ref="defaultTxAdvice"/>
+
+                <aop:advisor pointcut-ref="noTxServiceOperation" advice-ref="noTxAdvice"/>
+
+            </aop:config>
+
+            <!-- this bean will be transactional (see the 'defaultServiceOperation' pointcut) -->
+            <bean id="fooService" class="x.y.service.DefaultFooService"/>
+
+            <!-- this bean will also be transactional, but with totally different transactional settings -->
+            <bean id="anotherFooService" class="x.y.service.ddl.DefaultDdlManager"/>
+
+            <tx:advice id="defaultTxAdvice">
+                <tx:attributes>
+                    <tx:method name="get*" read-only="true"/>
+                    <tx:method name="*"/>
+                </tx:attributes>
+            </tx:advice>
+
+            <tx:advice id="noTxAdvice">
+                <tx:attributes>
+                    <tx:method name="*" propagation="NEVER"/>
+                </tx:attributes>
+            </tx:advice>
+
+            <!-- other transaction infrastructure beans such as a PlatformTransactionManager omitted... -->
+
+        </beans>
+        ```
+
+    5. \<tx:advice/>设置
+
+        本节总结了可以使用\<tx:advice/>标记指定的各种事务设置。默认\<tx:advice/>设置为:
+        * 传播设置是必填的。
+        * 隔离级别是默认的。
+        * 事务是读写的。
+        * 事务超时默认为底层事务系统的默认超时，如果不支持超时，则为none。
+        * 任何RuntimeException都会触发回滚，而任何已检查的异常则不会。
+
+        您可以更改这些默认设置。下表总结了嵌套在\<tx:advice/>和\<tx:attributes/>标签内的\<tx:method/>标签的各种属性:
+        
+        \<tx:method/>设置，如下表：
+
+        属性|是否必填?|默认值|描述
+        --|--|--|--
+        name|Yes||要与事务属性关联的方法名称。通配符(\*)可用于将相同的事务属性设置与许多方法(例如get*、handle*、on*Event等)关联起来。
+        propagation|No|REQUIRED|事务传播行为。
+        isolation|No|DEFAULT|事务隔离级别。仅适用于REQUIRED或REQUIRES_NEW的传播设置。
+        timeout|No|-1|事务超时(秒)。仅适用于传播REQUIRED或REQUIRES_NEW。
+        read-only|No|FALSE|读写事务与只读事务。只适用于REQUIRED或REQUIRES_NEW。
+        rollback-for|No||读写事务与只读事务。触发回滚的异常实例的逗号分隔列表。例如,com.foo.MyBusinessException,ServletException。
+        no-rollback-for|No||不触发回滚的异常实例的逗号分隔列表。例如,com.foo.MyBusinessException ServletException。
+
+    6. 使用@Transactional
+
+        除了基于xml的事务配置声明方法之外，还可以使用基于注释的方法。直接在Java源代码中声明事务语义使声明更接近受影响的代码。不存在过多耦合的危险，因为用于事务的代码几乎总是以这种方式部署的。
+
+        使用@Transactional注释所提供的易用性最好通过一个示例来说明，下面的文本将对此进行解释。考虑下面的类定义:
+
+        ```java
+        // the service class that we want to make transactional
+        @Transactional
+        public class DefaultFooService implements FooService {
+
+            Foo getFoo(String fooName);
+
+            Foo getFoo(String fooName, String barName);
+
+            void insertFoo(Foo foo);
+
+            void updateFoo(Foo foo);
+        }
+        ```
+
+        在上面的类级别上使用，注释为声明类(及其子类)的所有方法指明默认值。另外，每个方法都可以单独注释。注意，类级别的注释不应用于类层次结构上的祖先类;在这种情况下，需要在本地重新声明方法，以便参与子类级别的注释。
+
+        当像上面这样的POJO类在Spring上下文中定义为bean时，您可以通过@Configuration类中的@EnableTransactionManagement注释使bean实例具有事务性。有关详细信息，请参阅javadoc。
+        
+        在XML配置中，\<tx:annotation-driven/>标记提供了类似的便利:
+
+        ```xml
+        <!-- from the file 'context.xml' -->
+        <?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:aop="http://www.springframework.org/schema/aop"
+            xmlns:tx="http://www.springframework.org/schema/tx"
+            xsi:schemaLocation="
+                http://www.springframework.org/schema/beans
+                https://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/tx
+                https://www.springframework.org/schema/tx/spring-tx.xsd
+                http://www.springframework.org/schema/aop
+                https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+            <!-- this is the service object that we want to make transactional -->
+            <bean id="fooService" class="x.y.service.DefaultFooService"/>
+
+            <!-- enable the configuration of transactional behavior based on annotations -->
+            <tx:annotation-driven transaction-manager="txManager"/><!-- a PlatformTransactionManager is still required --> 
+
+            <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+                <!-- (this dependency is defined somewhere else) -->
+                <property name="dataSource" ref="dataSource"/>
+            </bean>
+
+            <!-- other <bean/> definitions here -->
+
+        </beans>
+        ```
+
+        **方法可见性和@Transactional**
+
+        ```
+        当使用代理时，应该只将@Transactional注释应用于具有公共可见性的方法。如果使用@Transactional注解注释受保护的、私有的或包可见的方法，则不会引发错误，但是注释的方法不显示配置的事务设置。如果需要注释非公共方法，请考虑使用AspectJ(稍后将进行描述)。
+        ```
+
+        您可以将@Transactional注释应用于接口定义、接口上的方法、类定义或类上的公共方法。然而，仅仅存在@Transactional注释还不足以激活事务行为。@Transactional注释只是一些运行时基础设施可以使用的元数据，这些运行时基础设施是@ transaction感知的，并且可以使用元数据配置适当的bean和事务行为。在前面的例子中，\<tx:annotation-driven/>元素打开事务行为。
+
+        在计算方法的事务设置时，最派生的位置优先。在下面的示例中，DefaultFooService类是在类级别用只读事务的设置进行注释的，但是同一个类中updateFoo(Foo)方法上的@Transactional注释优先于在类级别定义的事务设置。
+
+        ```java
+        @Transactional(readOnly = true)
+        public class DefaultFooService implements FooService {
+
+            public Foo getFoo(String fooName) {
+                // do something
+            }
+
+            // these settings have precedence for this method
+            @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
+            public void updateFoo(Foo foo) {
+                // do something
+            }
+        }
+        ```
+
+        1. @Transactional设置
+
+            @Transactional注释是元数据，它指定接口、类或方法必须具有事务语义(例如，“在调用此方法时启动全新的只读事务，暂停任何现有事务”)。默认的@Transactional设置如下:
+            * 传播设置是PROPAGATION_REQUIRED。
+            * 隔离级别为ISOLATION_DEFAULT。
+            * 事务是读写的。
+            * 事务超时默认为底层事务系统的默认超时，如果不支持超时，则为none。
+            * 任何RuntimeException都会触发回滚，而任何已检查的异常则不会。
+
+            您可以更改这些默认设置。下表总结了@Transactional注释的各种属性:
+            
+            属性|类型|描述
+            --|--|--
+            value|String|指定要使用的事务管理器的可选限定符。
+            propagation|枚举类: Propagation|可选的传播环境。
+            isolation|枚举类: Isolation|可选的隔离级别。仅适用于REQUIRED或REQUIRES_NEW的传播值。
+            timeout|int(以秒为单位粒度)|可选的事务超时。仅适用于REQUIREDor REQUIRES_NEW的传播值。
+            readOnly|boolean|读写事务与只读事务。仅适用于REQUIRED或REQUIRES_NEW的值。
+            rollbackFor|类对象的数组，该数组必须派生自Throwable。|必须导致回滚的异常类的可选数组。
+            rollbackForClassName|类名数组，类必须派生自Throwable。|必须导致回滚的异常类的名称的可选数组。
+
+            目前，您无法显式控制事务的名称，其中“name”表示出现在事务监视器(如果适用的话)和日志输出中的事务名称(例如，WebLogic的事务监视器)。对于声明性事务，事务名始终是完全限定的类名+.+事务通知类的方法名。例如，如果BusinessService类的handlePayment(..)方法启动了一个事务，该事务的名称将是:com.example.BusinessService.handlePayment。
+
+        2. 使用@Transactional的多个事务管理器
+
+            大多数Spring应用程序只需要一个事务管理器，但是在某些情况下，您可能希望在一个应用程序中有多个独立的事务管理器。您可以使用@Transactional注释的value属性选择性地指定要使用的PlatformTransactionManager的标识。这可以是bean名，也可以是事务管理器bean的限定符值。例如，使用限定符符号，您可以将以下Java代码与应用程序上下文中的事务管理器bean声明相结合:
+
+            ```java
+            public class TransactionalService {
+
+                @Transactional("order")
+                public void setSomething(String name) { ... }
+
+                @Transactional("account")
+                public void doSomething() { ... }
+            }
+            ```
+
+            下面的清单显示了bean声明:
+
+            ```xml
+            <tx:annotation-driven/>
+
+            <bean id="transactionManager1" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+                ...
+                <qualifier value="order"/>
+            </bean>
+
+            <bean id="transactionManager2" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+                ...
+                <qualifier value="account"/>
+            </bean>
+            ```
+
+            在本例中，TransactionalService上的两个方法在单独的事务管理器下运行，由订单和帐户限定符区分。如果没有找到特定限定的PlatformTransactionManager bean，则仍然使用缺省\<tx:注释驱动的>目标bean名称transactionManager。
+        
+        3. 自定义快捷键的注释
+
+            如果您发现在许多不同的方法上重复使用与@Transactional相同的属性，Spring的元注释支持允许您为特定的用例定义自定义快捷注释。例如，考虑以下注释定义:
+
+            ```java
+            @Target({ElementType.METHOD, ElementType.TYPE})
+            @Retention(RetentionPolicy.RUNTIME)
+            @Transactional("order")
+            public @interface OrderTx {
+            }
+
+            @Target({ElementType.METHOD, ElementType.TYPE})
+            @Retention(RetentionPolicy.RUNTIME)
+            @Transactional("account")
+            public @interface AccountTx {
+            }
+            ```
+
+            前面的注释让我们可以将上一节的例子写成如下:
+
+            ```java
+            public class TransactionalService {
+
+                @OrderTx
+                public void setSomething(String name) { ... }
+
+                @AccountTx
+                public void doSomething() { ... }
+            }
+            ```
+
+    7. 事务传播
+
+        本节描述Spring中事务传播的一些语义。注意，本节不是对事务传播的介绍。相反，它详细描述了Spring中关于事务传播的一些语义。
+
+        在spring管理的事务中，请注意物理事务和逻辑事务之间的差异，以及传播设置如何应用于这种差异。
+
+        * 理解PROPAGATION_REQUIRED
+
+            ![](spring/spring-data_access-tx_prop_required.png)
+
+            PROPAGATION_REQUIRED执行物理事务，如果当前范围中还不存在事务，则在本地执行当前范围的物理事务，或者参与为更大范围定义的现有“外部”事务。在同一线程中的公共调用堆栈安排中，这是一个很好的缺省值(例如，一个服务facade，它委托给几个存储库方法，其中所有底层资源都必须参与服务级事务)。
+
+        * 理解PROPAGATION_REQUIRES_NEW
+
+            ![](spring/spring-data_access-tx_prop_requires_new.png)
+
+            与PROPAGATION_REQUIRED相反，PROPAGATION_REQUIRES_NEW始终为每个受影响的事务范围使用独立的物理事务，从不参与外部范围的现有事务。在这种安排中，底层资源事务是不同的，因此可以独立提交或回滚，外部事务不受内部事务回滚状态的影响，内部事务的锁在完成后立即释放。这样一个独立的内部事务还可以声明自己的隔离级别、超时和只读设置，并且不继承外部事务的特征。
+
+        * 理解PROPAGATION_NESTED
+
+            PROPAGATION_NESTED使用一个具有多个保存点的物理事务，它可以回滚到这些保存点。这种部分回滚允许内部事务范围触发其范围的回滚，外部事务能够继续物理事务，尽管已经回滚了一些操作。此设置通常映射到JDBC保存点，因此仅适用于JDBC资源事务。
+
+    8. 建议事务操作
+
+        假设您想同时执行事务操作和一些基本的分析建议。如何在\<tx:annotation-driven/>上下文中实现这一点?
+
+        当您调用updateFoo(Foo)方法时，您希望看到以下操作:
+
+        * 启动已配置的概要方面。
+        * 执行事务通知。
+        * 执行被建议对象上的方法。
+        * 事务提交。
+        * 分析方面报告整个事务方法调用的确切持续时间。
+
+        下面的代码显示了前面讨论的简单分析方面:
+
+        ```java
+        package x.y;
+
+        import org.aspectj.lang.ProceedingJoinPoint;
+        import org.springframework.util.StopWatch;
+        import org.springframework.core.Ordered;
+
+        public class SimpleProfiler implements Ordered {
+
+            private int order;
+
+            // allows us to control the ordering of advice
+            public int getOrder() {
+                return this.order;
+            }
+
+            public void setOrder(int order) {
+                this.order = order;
+            }
+
+            // this method is the around advice
+            public Object profile(ProceedingJoinPoint call) throws Throwable {
+                Object returnValue;
+                StopWatch clock = new StopWatch(getClass().getName());
+                try {
+                    clock.start(call.toShortString());
+                    returnValue = call.proceed();
+                } finally {
+                    clock.stop();
+                    System.out.println(clock.prettyPrint());
+                }
+                return returnValue;
+            }
+        }
+        ```
+
+
+    9. 使用@Transactional和AspectJ
+
 5. 编程式事务管理
 6. 在程序性事务管理和声明性事务管理之间进行选择
 7. Transaction-bound事件
