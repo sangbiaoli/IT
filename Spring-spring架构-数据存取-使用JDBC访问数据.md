@@ -225,12 +225,177 @@ Spring框架负责处理所有底层细节，正是这些细节使得JDBC成为�
         }
         ```
 
+        记住，NamedParameterJdbcTemplate类封装了一个经典的JdbcTemplate模板。如果需要访问包装好的JdbcTemplate实例来访问仅出现在JdbcTemplate类中的功能，可以使用getJdbcOperations()方法通过JdbcOperations接口访问包装好的JdbcTemplate。
+
     3. 使用SQLExceptionTranslator
-    4. 运行报表
+
+        SQLExceptionTranslator是一个由类实现的接口，该类可以在SQLExceptions和Spring自己的org.springframework.dao.DataAccessException之间进行转换，它与数据访问策略无关。实现可以是通用的(例如，为JDBC使用SQLState代码)，也可以是专有的(例如，使用Oracle错误代码)，以获得更高的精度。
+
+        SQLErrorCodeSQLExceptionTranslator是默认使用的SQLExceptionTranslator的实现。此实现使用特定的供应商代码。它比SQLState实现更精确。错误代码转换基于JavaBean类型类SQLErrorCodes中包含的代码。该类由SQLErrorCodesFactory创建并填充，SQLErrorCodesFactory(顾名思义)是根据名为sql-error-code .xml的配置文件的内容创建sqlerrorcode的工厂。该文件由供应商代码填充，并基于DatabaseProductName(取自DatabaseMetaData)。使用您正在使用的实际数据库的代码。
+        
+        SQLErrorCodeSQLExceptionTranslator按照以下顺序应用匹配规则:
+
+        1. 由子类实现的任何自定义翻译。通常使用所提供的具体SQLErrorCodeSQLExceptionTranslator，因此不适用此规则。它只适用于实际提供了子类实现的情况。
+        2. SQLErrorCodes类的customSqlExceptionTranslator属性提供的SQLExceptionTranslator接口的任何自定义实现。
+        3. 将搜索CustomSQLErrorCodesTranslation类(为SQLErrorCodes类的customtranslation属性提供)的实例列表以寻找匹配项。
+        4. 应用错误代码匹配。
+        5. 使用后备翻译器。SQLExceptionSubclassTranslator是默认的回退转换器。如果这个翻译不可用，下一个后备翻译器是SQLStateSQLExceptionTranslator。
+
+        您可以扩展SQLErrorCodeSQLExceptionTranslator，如下面的示例所示:
+
+        ```java
+        public class CustomSQLErrorCodesTranslator extends SQLErrorCodeSQLExceptionTranslator {
+
+            protected DataAccessException customTranslate(String task, String sql, SQLException sqlex) {
+                if (sqlex.getErrorCode() == -12345) {
+                    return new DeadlockLoserDataAccessException(task, sqlex);
+                }
+                return null;
+            }
+        }
+        ```
+
+        在前面的示例中，将翻译特定的错误代码(-12345)，而其他错误将由缺省翻译器实现翻译。要使用这个自定义转换器，您必须通过setExceptionTranslator方法将其传递给JdbcTemplate，并且必须在需要这个转换器的所有数据访问处理中使用这个JdbcTemplate。下面的例子展示了如何使用这个自定义翻译器:
+
+        ```java
+        private JdbcTemplate jdbcTemplate;
+
+        public void setDataSource(DataSource dataSource) {
+
+            // create a JdbcTemplate and set data source
+            this.jdbcTemplate = new JdbcTemplate();
+            this.jdbcTemplate.setDataSource(dataSource);
+
+            // create a custom translator and set the DataSource for the default translation lookup
+            CustomSQLErrorCodesTranslator tr = new CustomSQLErrorCodesTranslator();
+            tr.setDataSource(dataSource);
+            this.jdbcTemplate.setExceptionTranslator(tr);
+
+        }
+
+        public void updateShippingCharge(long orderId, long pct) {
+            // use the prepared JdbcTemplate for this update
+            this.jdbcTemplate.update("update orders" +
+                " set shipping_charge = shipping_charge * ? / 100" +
+                " where id = ?", pct, orderId);
+        }
+        ```
+
+        为了在sql-error-code .xml中查找错误代码，将向自定义转换器传递一个数据源。
+
+    4. 运行Statements
+
+        运行SQL语句只需要很少的代码。您需要一个数据源和一个JdbcTemplate，包括JdbcTemplate提供的便利方法。下面的例子展示了创建一个新表的最小但功能齐全的类需要包含什么:
+
+        ```java
+        import javax.sql.DataSource;
+        import org.springframework.jdbc.core.JdbcTemplate;
+
+        public class ExecuteAStatement {
+
+            private JdbcTemplate jdbcTemplate;
+
+            public void setDataSource(DataSource dataSource) {
+                this.jdbcTemplate = new JdbcTemplate(dataSource);
+            }
+
+            public void doExecute() {
+                this.jdbcTemplate.execute("create table mytable (id integer, name varchar(100))");
+            }
+        }
+        ```
+
     5. 运行查询
+
+        一些查询方法返回一个值。要从一行检索计数或特定值，请使用queryForObject(..)。后者将返回的JDBC类型转换为作为参数传入的Java类。如果类型转换无效，则抛出InvalidDataAccessApiUsageException。下面的示例包含两个查询方法，一个用于int，另一个用于查询字符串:
+
+        ```java
+        import javax.sql.DataSource;
+        import org.springframework.jdbc.core.JdbcTemplate;
+
+        public class RunAQuery {
+
+            private JdbcTemplate jdbcTemplate;
+
+            public void setDataSource(DataSource dataSource) {
+                this.jdbcTemplate = new JdbcTemplate(dataSource);
+            }
+
+            public int getCount() {
+                return this.jdbcTemplate.queryForObject("select count(*) from mytable", Integer.class);
+            }
+
+            public String getName() {
+                return this.jdbcTemplate.queryForObject("select name from mytable", String.class);
+            }
+        }
+        ```
+
+        除了单个结果查询方法外，还有几个方法返回一个列表，其中查询返回的每一行都有一个条目。最通用的方法是queryForList(..)，它返回一个列表，其中每个元素都是一个映射，每个列包含一个条目，使用列名作为键。如果在前面的示例中添加一个方法来检索所有行的列表，它可能如下所示:
+
+        ```java
+        private JdbcTemplate jdbcTemplate;
+
+        public void setDataSource(DataSource dataSource) {
+            this.jdbcTemplate = new JdbcTemplate(dataSource);
+        }
+
+        public List<Map<String, Object>> getList() {
+            return this.jdbcTemplate.queryForList("select * from mytable");
+        }
+        ```
+
+        返回的列表如下:
+
+        ```
+        [{name=Bob, id=1}, {name=Mary, id=2}]
+        ```
+
     6. 更新数据库
+
+        下面的示例更新某个主键的列:
+
+        ```java
+        import javax.sql.DataSource;
+        import org.springframework.jdbc.core.JdbcTemplate;
+
+        public class ExecuteAnUpdate {
+
+            private JdbcTemplate jdbcTemplate;
+
+            public void setDataSource(DataSource dataSource) {
+                this.jdbcTemplate = new JdbcTemplate(dataSource);
+            }
+
+            public void setName(int id, String name) {
+                this.jdbcTemplate.update("update mytable set name = ? where id = ?", name, id);
+            }
+        }
+        ```
+    
+        在前面的示例中，SQL语句为行参数提供占位符。您可以将参数值作为变量传递，或者作为对象数组传递。因此，应该在基元包装器类中显式地包装基元，或者使用自动装箱。
+
     7. 获取自动生成的键
 
+        update()便利方法支持检索数据库生成的主键。这种支持是JDBC 3.0标准的一部分。详见规范第13.6章。该方法以PreparedStatementCreator作为第一个参数，这是指定所需insert语句的方式。另一个参数是KeyHolder，它包含更新成功返回时生成的密钥。没有标准的单一方法来创建适当的PreparedStatement(这解释了为什么方法签名是这样的)。下面的例子适用于Oracle，但可能不适用于其他平台:
+
+        ```java
+        final String INSERT_SQL = "insert into my_test (name) values(?)";
+        final String name = "Rob";
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(
+            new PreparedStatementCreator() {
+                public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+                    PreparedStatement ps = connection.prepareStatement(INSERT_SQL, new String[] {"id"});
+                    ps.setString(1, name);
+                    return ps;
+                }
+            },
+            keyHolder);
+
+        // keyHolder.getKey() now contains the generated key
+        ```
 
 4. 控制数据库连接
 5. JDBC批处理操作
@@ -239,3 +404,5 @@ Spring框架负责处理所有底层细节，正是这些细节使得JDBC成为�
 8. 参数和数据值处理的常见问题
 9. 嵌入式数据库的支持
 10. 初始化数据源
+
+原文：https://docs.spring.io/spring/docs/current/spring-framework-reference/data-access.html
