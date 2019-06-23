@@ -398,6 +398,123 @@ Spring框架负责处理所有底层细节，正是这些细节使得JDBC成为�
         ```
 
 4. 控制数据库连接
+
+    本节将介绍:
+
+    * 使用DataSource
+    * 使用DataSourceUtils
+    * 实现SmartDataSource
+    * 扩展AbstractDataSource
+    * 使用SingleConnectionDataSource
+    * 使用DriverManagerDataSource
+    * 使用TransactionAwareDataSourceProxy
+    * 使用DataSourceTransactionManager
+
+    1. 使用DataSource
+
+        Spring通过数据源获得到数据库的连接。数据源是JDBC规范的一部分，是一个通用的连接工厂。它允许容器或框架对应用程序代码隐藏连接池和事务管理问题。作为开发人员，您不需要知道如何连接到数据库的详细信息。这是设置数据源的管理员的责任。您很可能在开发和测试代码时同时担任这两个角色，但是您不必知道如何配置生产数据源。
+
+        当您使用Spring的JDBC层时，您可以从JNDI获得数据源，或者您可以使用第三方提供的连接池实现来配置您自己的数据源。流行的实现是Apache Jakarta Commons DBCP和C3P0。Spring发行版中的实现仅用于测试目的，不提供池。
+
+        本节使用Spring的DriverManagerDataSource实现，稍后将介绍其他几个实现。
+
+        要配置一个DriverManagerDataSource:
+        1. 获取与DriverManagerDataSource的连接，就像您通常获取JDBC连接一样。
+        2. 指定JDBC驱动程序的完全限定类名，以便驱动程序管理器可以加载驱动程序类。
+        3. 提供一个在JDBC驱动程序之间变化的URL。(有关正确的值，请参阅驱动程序的文档。)
+        4. 提供连接到数据库的用户名和密码。
+
+        下面的例子展示了如何在Java中配置DriverManagerDataSource:
+
+        ```java
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.hsqldb.jdbcDriver");
+        dataSource.setUrl("jdbc:hsqldb:hsql://localhost:");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+        ```
+
+        下面的示例显示了相应的XML配置:
+
+        ```xml
+        <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+            <property name="driverClassName" value="${jdbc.driverClassName}"/>
+            <property name="url" value="${jdbc.url}"/>
+            <property name="username" value="${jdbc.username}"/>
+            <property name="password" value="${jdbc.password}"/>
+        </bean>
+
+        <context:property-placeholder location="jdbc.properties"/>
+        ```
+
+        接下来的两个示例展示了DBCP和C3P0的基本连接和配置。要了解更多帮助控制池功能的选项，请参阅相关连接池实现的产品文档。
+        
+        下面的例子显示了DBCP配置:
+
+        ```xml
+        <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+            <property name="driverClassName" value="${jdbc.driverClassName}"/>
+            <property name="url" value="${jdbc.url}"/>
+            <property name="username" value="${jdbc.username}"/>
+            <property name="password" value="${jdbc.password}"/>
+        </bean>
+
+        <context:property-placeholder location="jdbc.properties"/>
+        ```
+
+        下面的例子显示了C3P0配置:
+
+        ```xml
+        <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+            <property name="driverClass" value="${jdbc.driverClassName}"/>
+            <property name="jdbcUrl" value="${jdbc.url}"/>
+            <property name="user" value="${jdbc.username}"/>
+            <property name="password" value="${jdbc.password}"/>
+        </bean>
+
+        <context:property-placeholder location="jdbc.properties"/>
+        ```
+
+    2. 使用DataSourceUtils
+
+        DataSourceUtils类是一个方便且功能强大的助手类，它提供静态方法来从JNDI获取连接，并在必要时关闭连接。它支持与DataSourceTransactionManager等线程绑定连接。
+
+    3. 实现SmartDataSource
+
+        SmartDataSource接口应该由能够提供到关系数据库连接的类实现。它扩展了DataSource接口，让使用它的类查询在给定操作之后是否应该关闭连接。当您知道需要重用连接时，这种用法是有效的。
+
+    4. 扩展AbstractDataSource
+
+        AbstractDataSource是Spring数据源实现的抽象基类。它实现了所有数据源实现所共有的代码。如果编写自己的数据源实现，应该扩展AbstractDataSource类。
+
+    5. 使用SingleConnectionDataSource
+
+        SingleConnectionDataSource类是SmartDataSource接口的实现，它封装了一个在每次使用之后都不会关闭的连接。这是不支持多线程的。
+
+        如果任何客户机代码调用都是基于池连接的假设关闭的(就像使用持久性工具时一样)，那么应该将suppressClose属性设置为true。此设置返回一个封装物理连接的关闭抑制代理。注意，您不能再将此转换为本机Oracle连接或类似对象。
+
+        SingleConnectionDataSource主要是一个测试类。例如，它支持使用简单的JNDI环境在应用服务器外部轻松地测试代码。与DriverManagerDataSource相反，它始终重用相同的连接，避免过多地创建物理连接。
+
+    6. 使用DriverManagerDataSource
+
+        DriverManagerDataSource类是标准数据源接口的实现，它通过bean属性配置普通JDBC驱动程序，并每次返回一个新连接。
+
+        此实现对于Java EE容器外部的测试和独立环境非常有用，可以作为Spring IoC容器中的数据源bean，也可以与简单的JNDI环境结合使用。close()调用close连接，因此任何数据源感知的持久性代码都应该可以工作。然而，使用javabean样式的连接池(例如commons-dbcp)非常简单，即使在测试环境中也是如此，因此在DriverManagerDataSource上使用这样的连接池，几乎总是首选。
+
+    7. 使用TransactionAwareDataSourceProxy
+
+        TransactionAwareDataSourceProxy是目标数据源的代理。代理将目标数据源包装起来，以增加对spring管理的事务的感知。在这方面，它类似于由Java EE服务器提供的事务性JNDI数据源。
+
+    8. 使用DataSourceTransactionManager
+
+        DataSourceTransactionManager类是针对单个JDBC数据源的平台transactionmanager实现。它将指定数据源的JDBC连接绑定到当前执行的线程，这可能允许每个数据源有一个线程连接。
+
+        要通过DataSourceUtils.getConnection (DataSource)而不是Java EE的标准DataSource.getConnection检索JDBC连接，需要应用程序代码。它抛出未选中的org.springframework。dao异常而不是已检查的SQLExceptions。所有框架类(例如JdbcTemplate)都隐式地使用此策略。如果不与此事务管理器一起使用，则查找策略的行为与普通策略完全相同。因此，它可以在任何情况下使用。
+
+        DataSourceTransactionManager类支持作为适当的JDBC语句查询超时应用的定制隔离级别和超时。要支持后者，应用程序代码必须使用JdbcTemplate或为每个创建的语句调用DataSourceUtils.applyTransactionTimeout(..)方法。
+        
+        在单资源的情况下，您可以使用这个实现代替JtaTransactionManager，因为它不需要容器来支持JTA。如果坚持使用所需的连接查找模式，在两者之间切换只是配置问题。JTA不支持自定义隔离级别。
+
 5. JDBC批处理操作
 6. 使用SimpleJdbc类简化JDBC操作
 7. 将JDBC操作建模为Java对象
