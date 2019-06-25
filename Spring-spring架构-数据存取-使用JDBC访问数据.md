@@ -1003,8 +1003,458 @@ Spring框架负责处理所有底层细节，正是这些细节使得JDBC成为�
         执行调用传递一个空映射，因为这个调用不接受任何参数。然后从结果映射检索参与者列表并返回给调用者。
         
 7. 将JDBC操作建模为Java对象
+
+    org.springframework.jdbc.object包允许以更面向对象的方式访问数据库的类。例如，您可以执行查询并将结果作为包含业务对象的列表返回，其中关系列数据映射到业务对象的属性。您还可以运行存储过程和运行update、delete和insert语句。
+
+    1. 理解SqlQuery
+
+        SqlQuery是一个可重用的、线程安全的类，它封装了一个SQL查询。子类必须实现newRowMapper(..)方法，以提供一个RowMapper实例，该实例可以在查询执行期间创建的ResultSet上迭代获得的每一行中创建一个对象。SqlQuery类很少直接使用，因为MappingSqlQuery子类为将行映射到Java类提供了更方便的实现。扩展SqlQuery的其他实现还有MappingSqlQueryWithParameters和UpdatableSqlQuery。
+
+    2. 理解MappingSqlQuery
+
+        MappingSqlQuery是一个可重用查询，其中具体子类必须实现抽象mapRow(..)方法，以便将提供的ResultSet的每一行转换为指定类型的对象。下面的例子显示了一个自定义查询，它将数据从t_actor关系映射到Actor类的一个实例:
+
+        ```java
+        public class ActorMappingQuery extends MappingSqlQuery<Actor> {
+
+            public ActorMappingQuery(DataSource ds) {
+                super(ds, "select id, first_name, last_name from t_actor where id = ?");
+                declareParameter(new SqlParameter("id", Types.INTEGER));
+                compile();
+            }
+
+            @Override
+            protected Actor mapRow(ResultSet rs, int rowNumber) throws SQLException {
+                Actor actor = new Actor();
+                actor.setId(rs.getLong("id"));
+                actor.setFirstName(rs.getString("first_name"));
+                actor.setLastName(rs.getString("last_name"));
+                return actor;
+            }
+
+        }
+        ```
+
+        该类扩展了使用Actor类型参数化的MappingSqlQuery。此客户查询的构造函数将数据源作为唯一参数。在这个构造函数中，您可以使用数据源和应该执行的SQL调用超类上的构造函数来检索该查询的行。此SQL用于创建PreparedStatement，因此它可能包含占位符，以便在执行期间传递任何参数。必须使用传递SqlParameter的declareParameter方法声明每个参数。SqlParameter接受一个名称，以及java.sql.Types中定义的JDBC类型。定义完所有参数后，可以调用compile()方法，以便准备语句并在稍后运行。该类编译后是线程安全的，因此，只要在初始化DAO时创建了这些实例，就可以将它们作为实例变量保存并重用。下面的例子展示了如何定义这样一个类:
+
+        ```java
+        private ActorMappingQuery actorMappingQuery;
+
+        @Autowired
+        public void setDataSource(DataSource dataSource) {
+            this.actorMappingQuery = new ActorMappingQuery(dataSource);
+        }
+
+        public Customer getCustomer(Long id) {
+            return actorMappingQuery.findObject(id);
+        }
+        ```
+
+        前面示例中的方法检索具有作为惟一参数传入的id的客户。因为我们只想返回一个对象，所以我们调用了findObject便利方法，并将id作为参数。如果我们有一个返回对象列表并接受其他参数的查询，我们将使用其中一个执行方法，该方法接受作为varargs传入的参数值数组。下面的例子展示了这样一个方法:
+
+        ```java
+        public List<Actor> searchForActors(int age, String namePattern) {
+            List<Actor> actors = actorSearchMappingQuery.execute(age, namePattern);
+            return actors;
+        }
+        ```
+
+    3. 使用SqlUpdate
+
+        SqlUpdate类封装了一个SQL更新。与查询一样，update对象是可重用的，并且与所有RdbmsOperation类一样，update可以有参数，并且是用SQL定义的。该类提供了许多update(..)方法，类似于查询对象的execute(..)方法。SQLUpdate类是具体的。它可以被子类化——例如，添加一个自定义更新方法。但是，您不必子类化SqlUpdate类，因为它可以通过设置SQL和声明参数轻松地进行参数化。下面的示例创建了一个名为execute的自定义更新方法:
+
+        ```java
+        import java.sql.Types;
+        import javax.sql.DataSource;
+        import org.springframework.jdbc.core.SqlParameter;
+        import org.springframework.jdbc.object.SqlUpdate;
+
+        public class UpdateCreditRating extends SqlUpdate {
+
+            public UpdateCreditRating(DataSource ds) {
+                setDataSource(ds);
+                setSql("update customer set credit_rating = ? where id = ?");
+                declareParameter(new SqlParameter("creditRating", Types.NUMERIC));
+                declareParameter(new SqlParameter("id", Types.NUMERIC));
+                compile();
+            }
+
+            /**
+            * @param id for the Customer to be updated
+            * @param rating the new value for credit rating
+            * @return number of rows updated
+            */
+            public int execute(int id, int rating) {
+                return update(rating, id);
+            }
+        }
+        ```
+
+    4. 使用StoredProcedure
+
+        StoredProcedure类是用于RDBMS存储过程对象抽象的超类。该类是抽象的，它的各种execute(..)方法是protected的，防止通过提供更严格类型的子类以外的方法使用。
+
+        继承的sql属性是RDBMS中存储过程的名称。
+
+        要为StoredProcedure类定义参数，可以使用SqlParameter或其子类之一。必须在构造函数中指定参数名和SQL类型，如下面的代码片段所示:
+
+        ```java
+        new SqlParameter("in_id", Types.NUMERIC),
+        new SqlOutParameter("out_first_name", Types.VARCHAR),
+        ```
+
+        SQL类型是使用java.sql.Types的常量。
+
+        第一行(带有SqlParameter)声明了一个IN参数。您可以在参数中对存储过程调用和使用SqlQuery及其子类(在理解SqlQuery中涉及)的查询使用参数。
+
+        第二行(带有SqlOutParameter)声明一个out参数，用于存储过程调用。InOut参数还有一个SqlInOutParameter(为过程提供in值并返回值的参数)。
+
+        对于in参数，除了名称和SQL类型外，还可以为数值数据指定比例，或者为自定义数据库类型指定类型名称。对于out参数，您可以提供一个行映射器来处理REF游标返回的行映射。另一个选项是指定SqlReturnType，它允许您定义对返回值的自定义处理。
+
+        下一个简单DAO示例使用StoredProcedure调用函数(sysdate())，该函数随任何Oracle数据库一起提供。要使用存储过程功能，您必须创建一个扩展StoredProcedure的类。在本例中，StoredProcedure类是一个内部类。但是，如果需要重用StoredProcedure，可以将其声明为顶级类。这个示例没有输入参数，但是通过使用SqlOutParameter类将输出参数声明为日期类型。execute()方法运行该过程并从结果映射中提取返回的日期。通过使用参数名作为键，结果映射为每个声明的输出参数都有一个条目(在本例中只有一个)。下面的清单显示了我们自定义的StoredProcedure类:
+
+        ```java
+        import java.sql.Types;
+        import java.util.Date;
+        import java.util.HashMap;
+        import java.util.Map;
+        import javax.sql.DataSource;
+        import org.springframework.beans.factory.annotation.Autowired;
+        import org.springframework.jdbc.core.SqlOutParameter;
+        import org.springframework.jdbc.object.StoredProcedure;
+
+        public class StoredProcedureDao {
+
+            private GetSysdateProcedure getSysdate;
+
+            @Autowired
+            public void init(DataSource dataSource) {
+                this.getSysdate = new GetSysdateProcedure(dataSource);
+            }
+
+            public Date getSysdate() {
+                return getSysdate.execute();
+            }
+
+            private class GetSysdateProcedure extends StoredProcedure {
+
+                private static final String SQL = "sysdate";
+
+                public GetSysdateProcedure(DataSource dataSource) {
+                    setDataSource(dataSource);
+                    setFunction(true);
+                    setSql(SQL);
+                    declareParameter(new SqlOutParameter("date", Types.DATE));
+                    compile();
+                }
+
+                public Date execute() {
+                    // the 'sysdate' sproc has no input parameters, so an empty Map is supplied...
+                    Map<String, Object> results = execute(new HashMap<String, Object>());
+                    Date sysdate = (Date) results.get("date");
+                    return sysdate;
+                }
+            }
+
+        }
+        ```
+
+        下面的StoredProcedure示例有两个输出参数(在本例中是Oracle REF游标):
+
+        ```java
+        import java.util.HashMap;
+        import java.util.Map;
+        import javax.sql.DataSource;
+        import oracle.jdbc.OracleTypes;
+        import org.springframework.jdbc.core.SqlOutParameter;
+        import org.springframework.jdbc.object.StoredProcedure;
+
+        public class TitlesAndGenresStoredProcedure extends StoredProcedure {
+
+            private static final String SPROC_NAME = "AllTitlesAndGenres";
+
+            public TitlesAndGenresStoredProcedure(DataSource dataSource) {
+                super(dataSource, SPROC_NAME);
+                declareParameter(new SqlOutParameter("titles", OracleTypes.CURSOR, new TitleMapper()));
+                declareParameter(new SqlOutParameter("genres", OracleTypes.CURSOR, new GenreMapper()));
+                compile();
+            }
+
+            public Map<String, Object> execute() {
+                // again, this sproc has no input parameters, so an empty Map is supplied
+                return super.execute(new HashMap<String, Object>());
+            }
+        }
+        ```
+
+        注意，在TitlesAndGenresStoredProcedure构造函数中使用的declareParameter(..)方法的重载变体是如何传递RowMapper实现实例的。这是重用现有功能的一种非常方便和强大的方法。下面的两个示例提供了两个RowMapper实现的代码。
+
+        TitleMapper类为提供的ResultSet中的每一行将一个ResultSet映射到一个Title域对象，如下所示:
+
+        ```java
+        import java.sql.ResultSet;
+        import java.sql.SQLException;
+        import com.foo.domain.Title;
+        import org.springframework.jdbc.core.RowMapper;
+
+        public final class TitleMapper implements RowMapper<Title> {
+
+            public Title mapRow(ResultSet rs, int rowNum) throws SQLException {
+                Title title = new Title();
+                title.setId(rs.getLong("id"));
+                title.setName(rs.getString("name"));
+                return title;
+            }
+        }
+        ```
+
+        GenreMapper类为提供的ResultSet中的每一行将一个ResultSet映射到一个类型域对象，如下所示:
+
+        ```java
+        import java.sql.ResultSet;
+        import java.sql.SQLException;
+        import com.foo.domain.Genre;
+        import org.springframework.jdbc.core.RowMapper;
+
+        public final class GenreMapper implements RowMapper<Genre> {
+
+            public Genre mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return new Genre(rs.getString("name"));
+            }
+        }
+        ```
+
+        要将参数传递给RDBMS中定义有一个或多个输入参数的存储过程，可以编写一个强类型的execute(..)方法，该方法将委托给超类中的untyped execute(Map)方法，如下例所示:
+
+        ```java
+        import java.sql.Types;
+        import java.util.Date;
+        import java.util.HashMap;
+        import java.util.Map;
+        import javax.sql.DataSource;
+        import oracle.jdbc.OracleTypes;
+        import org.springframework.jdbc.core.SqlOutParameter;
+        import org.springframework.jdbc.core.SqlParameter;
+        import org.springframework.jdbc.object.StoredProcedure;
+
+        public class TitlesAfterDateStoredProcedure extends StoredProcedure {
+
+            private static final String SPROC_NAME = "TitlesAfterDate";
+            private static final String CUTOFF_DATE_PARAM = "cutoffDate";
+
+            public TitlesAfterDateStoredProcedure(DataSource dataSource) {
+                super(dataSource, SPROC_NAME);
+                declareParameter(new SqlParameter(CUTOFF_DATE_PARAM, Types.DATE);
+                declareParameter(new SqlOutParameter("titles", OracleTypes.CURSOR, new TitleMapper()));
+                compile();
+            }
+
+            public Map<String, Object> execute(Date cutoffDate) {
+                Map<String, Object> inputs = new HashMap<String, Object>();
+                inputs.put(CUTOFF_DATE_PARAM, cutoffDate);
+                return super.execute(inputs);
+            }
+        }
+        ```
+
 8. 参数和数据值处理的常见问题
+
+    参数和数据值的常见问题存在于Spring Framework的JDBC支持提供的不同方法中。本节将介绍如何解决这些问题。
+
+    1. 为参数提供SQL类型信息
+
+        通常，Spring根据传入的参数类型确定参数的SQL类型。可以显式地提供设置参数值时使用的SQL类型。这对于正确设置NULL值有时是必要的。
+        您可以通过以下几种方式提供SQL类型信息:
+
+        * JdbcTemplate的许多更新和查询方法都采用int数组形式的附加参数。这个数组使用java.sql.Types中的常量值来指示相应参数的类。为每个参数提供一个条目。
+        * 您可以使用SqlParameterValue类来包装需要此附加信息的参数值。为此，为每个值创建一个新实例，并在构造函数中传递SQL类型和参数值。还可以为数值提供可选的缩放参数。
+        * 对于使用命名参数的方法，可以使用SqlParameterSource类、BeanPropertySqlParameterSource或MapSqlParameterSource。它们都有为任何命名参数值注册SQL类型的方法。
+
+    2. 处理BLOB和CLOB对象
+
+        您可以在数据库中存储图像、其他二进制数据和大块文本。这些大对象对于二进制数据称为blob(二进制大对象)，对于字符数据称为clob(字符大对象)。在Spring中，您可以通过直接使用JdbcTemplate来处理这些大型对象，也可以在使用RDBMS对象和SimpleJdbc类提供的高级抽象时处理这些对象。所有这些方法都使用LobHandler接口的实现来实际管理LOB(大对象)数据。LobHandler通过getLobCreator方法提供对LobCreator类的访问，该方法用于创建要插入的新LOB对象。
+
+        LobCreator和LobHandler为LOB输入和输出提供了以下支持:
+
+        * BLOB
+            * byte[]: getBlobAsBytes和setBlobAsBytes
+            * InputStream: getBlobAsBinaryStream和setBlobAsBinaryStream
+        * CLOB
+            * String: getClobAsString和setClobAsString
+            * InputStream: getClobAsAsciiStream和setClobAsAsciiStream
+            * Reader:getClobAsCharacterStream和setClobAsCharacterStream
+
+        下一个示例显示如何创建和插入BLOB。稍后，我们将展示如何从数据库中读取它。
+
+        本例使用JdbcTemplate和AbstractLobCreatingPreparedStatementCallback的实现。它实现了一个方法setValues。这个方法提供了一个LobCreator，我们使用它来设置SQL insert语句中LOB列的值。
+
+        对于本例，我们假设有一个变量lobHandler，它已经被设置为DefaultLobHandler的一个实例。通常通过依赖项注入设置此值。
+
+        下面的例子展示了如何创建和插入BLOB:
+
+        ```java
+        final File blobIn = new File("spring2004.jpg");
+        final InputStream blobIs = new FileInputStream(blobIn);
+        final File clobIn = new File("large.txt");
+        final InputStream clobIs = new FileInputStream(clobIn);
+        final InputStreamReader clobReader = new InputStreamReader(clobIs);
+
+        jdbcTemplate.execute(
+            "INSERT INTO lob_table (id, a_clob, a_blob) VALUES (?, ?, ?)",
+            new AbstractLobCreatingPreparedStatementCallback(lobHandler) {  //1
+                protected void setValues(PreparedStatement ps, LobCreator lobCreator) throws SQLException {
+                    ps.setLong(1, 1L);
+                    lobCreator.setClobAsCharacterStream(ps, 2, clobReader, (int)clobIn.length());  //2
+                    lobCreator.setBlobAsBinaryStream(ps, 3, blobIs, (int)blobIn.length());  //3
+                }
+            }
+        );
+
+        blobIs.close();
+        clobReader.close();
+        ```
+
+        1. 传入(在本例中)是普通DefaultLobHandler的lobHandler。
+        2. 使用setClobAsCharacterStream方法传入CLOB的内容。
+        3. 使用setBlobAsBinaryStream方法传入BLOB的内容。
+
+        现在是时候从数据库中读取LOB数据了。同样，使用具有相同实例变量lobHandler和对DefaultLobHandler的引用的JdbcTemplate。下面的例子说明了如何做到这一点:
+
+        ```java
+        List<Map<String, Object>> l = jdbcTemplate.query("select id, a_clob, a_blob from lob_table",
+        new RowMapper<Map<String, Object>>() {
+            public Map<String, Object> mapRow(ResultSet rs, int i) throws SQLException {
+                Map<String, Object> results = new HashMap<String, Object>();
+                String clobText = lobHandler.getClobAsString(rs, "a_clob");  
+                results.put("CLOB", clobText);
+                byte[] blobBytes = lobHandler.getBlobAsBytes(rs, "a_blob");  
+                results.put("BLOB", blobBytes);
+                return results;
+            }
+        });
+        ```
+
+    3. 传入in子句的值列表（跳过）
+
+    4. 处理存储过程调用的复杂类型（跳过）
+
 9. 嵌入式数据库的支持
-10. 初始化数据源
+
+    org.springframework.jdbc.datasource.embedded提供对嵌入式Java数据库引擎的支持。本地提供对HSQL、H2和Derby的支持。还可以使用可扩展API插入新的嵌入式数据库类型和数据源实现。
+
+    1. 为什么使用嵌入式数据库?
+
+        嵌入式数据库在项目的开发阶段非常有用，因为它是轻量级的。其优点包括易于配置、快速启动时间、可测试性，以及在开发过程中快速发展SQL的能力。
+
+    2. 使用Spring XML创建嵌入式数据库
+
+        如果想在Spring ApplicationContext中将嵌入式数据库实例公开为bean，可以使用Spring -jdbc名称空间中的嵌入式数据库标记:
+
+        ```xml
+        <jdbc:embedded-database id="dataSource" generate-name="true">
+            <jdbc:script location="classpath:schema.sql"/>
+            <jdbc:script location="classpath:test-data.sql"/>
+        </jdbc:embedded-database>
+        ```
+
+        前面的配置创建了一个嵌入式HSQL数据库，其中填充了来自类路径根中的sql资源schema.sql和test-data.sql数据。此外，作为最佳实践，嵌入式数据库被分配一个惟一生成的名称。嵌入式数据库作为javax.sql类型的bean提供给Spring容器。然后可以根据需要将数据源注入到数据访问对象中。
+
+    3. 以编程方式创建嵌入式数据库
+
+        EmbeddedDatabaseBuilder类为以编程方式构建嵌入式数据库提供了一个流畅的API。当您需要在独立环境或独立集成测试中创建嵌入式数据库时，可以使用此功能，如下例所示:
+
+        ```java
+        EmbeddedDatabase db = new EmbeddedDatabaseBuilder()
+        .generateUniqueName(true)
+        .setType(H2)
+        .setScriptEncoding("UTF-8")
+        .ignoreFailedDrops(true)
+        .addScript("schema.sql")
+        .addScripts("user_data.sql", "country_data.sql")
+        .build();
+
+        // perform actions against the db (EmbeddedDatabase extends javax.sql.DataSource)
+
+        db.shutdown()
+        ```
+
+        有关所有受支持选项的详细信息，请参阅EmbeddedDatabaseBuilder的javadoc。
+        您还可以使用EmbeddedDatabaseBuilder使用Java配置创建嵌入式数据库，如下面的示例所示:
+
+        ```java
+        @Configuration
+        public class DataSourceConfig {
+
+            @Bean
+            public DataSource dataSource() {
+                return new EmbeddedDatabaseBuilder()
+                        .generateUniqueName(true)
+                        .setType(H2)
+                        .setScriptEncoding("UTF-8")
+                        .ignoreFailedDrops(true)
+                        .addScript("schema.sql")
+                        .addScripts("user_data.sql", "country_data.sql")
+                        .build();
+            }
+        }
+        ```
+
+    4. 选择嵌入式数据库类型
+
+        本节介绍如何选择Spring支持的三个嵌入式数据库之一。它包括下列主题:
+        * 使用HSQL
+        * 使用H2
+        * 使用Derby
+        
+        1. 使用HSQL
+
+            Spring支持HSQL 1.8.0及以上版本。如果没有显式指定类型，HSQL是默认的嵌入式数据库。要显式指定HSQL，请将嵌入式数据库标记的type属性设置为HSQL。如果使用builder API，则使用EmbeddedDatabaseType.HSQL调用setType(EmbeddedDatabaseType)方法。
+
+        2. 使用H2
+        
+            Spring支持H2数据库。要启用H2，请将嵌入数据库标记的type属性设置为H2。如果使用builder API，则使用EmbeddedDatabaseType.H2调用setType(EmbeddedDatabaseType)方法。
+
+        3. 使用Derby
+            
+            Spring支持Apache Derby 10.5及以上版本。要启用Derby，请将嵌入数据库标记的type属性设置为Derby。如果使用builder API，请使用EmbeddedDatabaseType.DERBY调用setType(EmbeddedDatabaseType)方法。
+
+
+    5. 使用嵌入式数据库测试数据访问逻辑
+
+        嵌入式数据库提供了一种轻量级的方法来测试数据访问代码。下一个示例是使用嵌入式数据库的数据访问集成测试模板。当嵌入式数据库不需要跨测试类重用时，使用这样的模板可以一次性使用。然而,如果您希望创建一个共享的嵌入式数据库在一个测试套件,考虑使用Spring和TestContext框架和配置Spring ApplicationContext的嵌入式数据库作为一个bean创建所述嵌入式数据库通过使用Spring XML和创建嵌入式数据库编程。下面的清单显示了测试模板:
+
+        ```java
+        public class DataAccessIntegrationTestTemplate {
+
+            private EmbeddedDatabase db;
+
+            @Before
+            public void setUp() {
+                // creates an HSQL in-memory database populated from default scripts
+                // classpath:schema.sql and classpath:data.sql
+                db = new EmbeddedDatabaseBuilder()
+                        .generateUniqueName(true)
+                        .addDefaultScripts()
+                        .build();
+            }
+
+            @Test
+            public void testDataAccess() {
+                JdbcTemplate template = new JdbcTemplate(db);
+                template.query( /* ... */ );
+            }
+
+            @After
+            public void tearDown() {
+                db.shutdown();
+            }
+
+        }
+        ```
+
+    6. 为嵌入式数据库生成惟一的名称（跳过）
+    7. 扩展嵌入式数据库支持（跳过）
+
+10. 初始化数据源（跳过）
 
 原文：https://docs.spring.io/spring/docs/current/spring-framework-reference/data-access.html
