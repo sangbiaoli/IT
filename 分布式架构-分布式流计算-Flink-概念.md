@@ -137,3 +137,4 @@ Apache Flink是一个用于分布式流和批处理数据的开源平台。Flink
 
 原文：https://ci.apache.org/projects/flink/flink-docs-master/concepts/programming-model.html#collapse-2
 https://ci.apache.org/projects/flink/flink-docs-master/concepts/runtime.html
+https://flink.sojb.cn/dev/api_concepts.html
