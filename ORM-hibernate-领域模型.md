@@ -295,12 +295,109 @@
             JTSGeometryType|depends on the dialect|com.vividsolutions.jts.geom.Geometry|jts_geometry, or the class name of Geometry or any of its subclasses
             GeolatteGeometryType|depends on the dialect|org.geolatte.geom.Geometry|geolatte_geometry, or the class name of Geometry or any of its subclasses
 
-        这些映射由Hibernate中名为org.hibernate.type.BasicTypeRegistry的服务管理着，它本质上维护org.hibernate.type.BasicType的映射org.hibernate.type.Type的特例)，这就是前面表中“BasicTypeRegistry key(s)”列的目的。
+        这些映射由Hibernate中名为org.hibernate.type.BasicTypeRegistry的服务管理着，它本质上维护org.hibernate.type.BasicType的映射(org.hibernate.type.Type的特例)。
 
     2. @Basic注释
+
+        严格地说，基本类型由javax.persistence.Basic注解修饰。一般来说，可以忽略@Basic注释，因为它是默认的。下面的两个示例最终都是相同的。
+
+        ```java
+        @Entity(name = "Product")
+        public class Product {
+
+            @Id
+            @Basic
+            private Integer id;
+
+            @Basic
+            private String sku;
+
+            @Basic
+            private String name;
+
+            @Basic
+            private String description;
+        }
+        ```
+
+        ```java
+        @Entity(name = "Product")
+        public class Product {
+
+            @Id
+            private Integer id;
+
+            private String sku;
+
+            private String name;
+
+            private String description;
+        }
+        ```
+
+        @Basic注释定义了两个属性：
+        * optional - boolean (默认为true)
+
+            定义此属性是否允许为空。JPA将其定义为“一个提示”，这实际上意味着它的效果是特定需要的。只要类型不是基元类型，Hibernate就会认为底层列应该是空的。
+        * fetch - FetchType (默认为EAGER)
+
+            定义应立即获取该属性还是延迟获取该属性。JPA说，EAGER是提供者(Hibernate)的一个要求，即在获取所有者时应该获取值，而LAZY只是在访问属性时获取值的一个提示。Hibernate会忽略基本类型的这个设置，除非使用字节码增强。
+
     3. @ column注释
+
+        JPA定义了隐式确定表和列名称的规则。有关隐式命名的详细讨论，请参见命名。
+
+        对于基本类型属性，隐式命名规则是列名与属性名相同。如果隐式命名规则不满足您的要求，您可以显式地告诉Hibernate(和其他提供者)要使用的列名。
+
+        ```java
+        @Entity(name = "Product")
+        public class Product {
+
+            @Id
+            private Integer id;
+
+            private String sku;
+
+            private String name;
+
+            @Column( name = "NOTES" )
+            private String description;
+        }
+        ```
+
+        这里，我们使用@Column显式地将description属性映射到NOTES列，而不是隐式的列名描述。
+
+        @Column注释还定义了其他映射信息。有关详细信息，请参见它的Javadocs。
+
     4. BasicTypeRegistry
+
+        我们之前说过Hibernate类型不是Java类型，也不是SQL类型，但是它同时理解这两种类型并在它们之间执行编组。但是看看前面示例中的基本类型映射，Hibernate如何知道使用它的org.hibernate.type.StringType用于映射java.lang.String属性，或其org.hibernate.type.IntegerType用于映射java.lang.Integer属性?
+        
+        答案在于Hibernate中的一个名为org.hibernate.type.BasicTypeRegistry。它本质上维护org.hibernate.type.BasicType 的映射。
+
     5. 明确BasicTypes
+
+        有时，您希望以不同的方式处理特定的属性。Hibernate偶尔会隐式地选择您不想要的BasicType(出于某种原因，您不希望调整BasicTypeRegistry)。
+        
+        在这些情况下，必须通过org.Hibernate.annotations.Type显式地告诉Hibernate要使用的基本类型。
+
+        ```java
+        @Entity(name = "Product")
+        public class Product {
+
+            @Id
+            private Integer id;
+
+            private String sku;
+
+            @org.hibernate.annotations.Type( type = "nstring" )
+            private String name;
+
+            @org.hibernate.annotations.Type( type = "materialized_nclob" )
+            private String description;
+        }
+        ```
+
     6. 自定义BasicTypes
     7. 映射枚举
     8. 映射lob
