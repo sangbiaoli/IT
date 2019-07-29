@@ -580,14 +580,202 @@
         Set<SelectionKey> selectedKeys = select .selectedKeys();
         ```
 
-        当您使用选择器注册通道时，channel.register()方法将返回SelectionKey对象。此键表示使用该选择器进行通道注册。您可以通过selectedKeySet()方法访问这些密钥。从SelectionKey。
+        当您使用选择器注册通道时，channel.register()方法将返回SelectionKey对象。这个Key表示使用该选择器进行通道注册。您可以通过selectedKeySet()方法访问这些Key。
+
         您可以迭代这个选定的键集来访问就绪通道。它是这样的:
 
+        ```java
+        Set<SelectionKey> selectedKeys = selector.selectedKeys();
+
+        Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
+
+        while(keyIterator.hasNext()) {
+
+            SelectionKey key = keyIterator.next();
+
+            if(key.isAcceptable()) {
+                // a connection was accepted by a ServerSocketChannel.
+
+            } else if (key.isConnectable()) {
+                // a connection was established with a remote server.
+
+            } else if (key.isReadable()) {
+                // a channel is ready for reading
+
+            } else if (key.isWritable()) {
+                // a channel is ready for writing
+            }
+
+            keyIterator.remove();
+        }
+        ```
+
+        这个循环遍历所选键集中的键。对于每个键，它都测试key以确定键所引用的通道准备用于什么。
+
+        请注意在每次迭代结束时调用keyIterator.remove()。选择器不会从所选的键集本身删除SelectionKey实例。你必须这样做，当你处理完通道。下次通道“就绪”时，选择器将再次将其添加到所选的键集中。
+
+        channel()方法返回的通道应该转换为您需要使用的通道，比如一个ServerSocketChannel或SocketChannel等。
+
     * wakeUp()
+
+        如果线程调用了阻塞的select()方法，则可以让select()方法保留，即使还没有通道。这是通过让另一个线程调用选择器上的select.wakeup()方法来实现的，第一个线程在这个选择器上调用select()。在select()中等待的线程将立即返回。
+
+        如果另一个线程调用了wakeup()，而select()中当前没有阻塞任何线程，则调用select()的下一个线程将立即“唤醒”。
+
     * close()
+
+        当您完成选择器时，您将调用它的close()方法。这将关闭选择器并使所有使用该选择器注册的SelectionKey实例无效。通道本身并没有关闭。
+
     * 完整的Selector例子
 
+        下面是一个完整的示例，它打开一个选择器，用它注册一个通道(省略通道实例化)，并持续监视选择器，以确定四个事件(accept、connect、read、write)的“准备就绪”。
+
+        ```java
+        Selector selector = Selector.open();
+
+        channel.configureBlocking(false);
+
+        SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
+
+
+        while(true) {
+
+            int readyChannels = selector.selectNow();
+
+            if(readyChannels == 0) continue;
+
+
+            Set<SelectionKey> selectedKeys = selector.selectedKeys();
+
+            Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
+
+            while(keyIterator.hasNext()) {
+
+                SelectionKey key = keyIterator.next();
+
+                if(key.isAcceptable()) {
+                    // a connection was accepted by a ServerSocketChannel.
+
+                } else if (key.isConnectable()) {
+                    // a connection was established with a remote server.
+
+                } else if (key.isReadable()) {
+                    // a channel is ready for reading
+
+                } else if (key.isWritable()) {
+                    // a channel is ready for writing
+                }
+
+                keyIterator.remove();
+            }
+        }
+        ```
+
 8. FileChannel
+
+    Java NIO FileChannel是连接到文件的通道。使用文件通道，您可以从文件中读取数据，并将数据写入文件。Java NIO FileChannel类是NIO使用标准Java IO API读取文件的替代方法。
+
+    无法将FileChannel设置为非阻塞模式。它总是在阻塞模式下运行。
+
+    1. 打开FileChannel
+
+        在使用FileChannel之前，必须先打开它。不能直接打开FileChannel。您需要通过InputStream、OutputStream或RandomAccessFile获得一个FileChannel。下面是如何通过RandomAccessFile打开FileChannel:
+
+        ```java
+        RandomAccessFile aFile     = new RandomAccessFile("data/nio-data.txt", "rw");
+        FileChannel      inChannel = aFile.getChannel();
+        ```
+
+    2. 从FileChannel中读取数据
+
+        要从FileChannel读取数据，可以调用read()方法之一。举个例子:
+
+        ```java
+        ByteBuffer buf = ByteBuffer.allocate(48);
+
+        int bytesRead = inChannel.read(buf);
+        ```
+
+        首先分配一个Buffer。从FileChannel读取的数据被读入Buffer。
+
+        其次，调用FileChannel.read()方法。此方法将数据从FileChannel读入Buffer。read()方法返回的int值告诉缓冲区中保留了多少字节。如果返回-1，则到达文件末尾。
+
+    3. 往FileChannel中写数据
+
+        将数据写入FileChannel是使用FileChannel.write()方法完成的，该方法将缓冲区作为参数。举个例子:
+
+        ```java
+        String newData = "New String to write to file..." + System.currentTimeMillis();
+
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
+        buf.put(newData.getBytes());
+
+        buf.flip();
+
+        while(buf.hasRemaining()) {
+            channel.write(buf);
+        }
+        ```
+
+        注意，如何在while循环中调用FileChannel.write()方法。write()方法不能保证向FileChannel写入多少字节。因此，我们重复write()调用，直到缓冲区没有需要写入的字节为止。
+
+    4. 关闭FileChannel
+
+        当您完成使用FileChannel时，必须关闭它。这是如何做到的:
+
+        ```java
+        channel.close();
+        ```
+
+    5. FileChannel Position
+
+        当读取或写入一个FileChannel时，需要在特定的位置进行操作。您可以通过调用position()方法获得FileChannel对象的当前位置。
+
+        您还可以通过调用position(long pos)方法来设置FileChannel的位置。
+
+        这里有两个例子:
+
+        ```java
+        long pos  = channel.position();
+
+        channel.position(pos +123);
+        ```
+
+        如果您在文件结束后设置位置，并尝试从通道读取，您将得到-1—文件结束标记。
+
+        如果在文件结束后设置位置，并写入通道，文件将被展开以适应位置和写入的数据。这可能会导致“文件漏洞”，即磁盘上的物理文件在写入的数据中有间隙。
+
+    6. FileChannel Size
+
+        FileChannel对象的size()方法返回通道连接到的文件的文件大小。下面是一个简单的例子:
+
+        ```java
+        long fileSize = channel.size();
+        ```
+
+    7. FileChannel Truncate
+
+        您可以通过调用FileChannel.truncate()方法来截断文件。当您截断一个文件时，您将它以给定的长度截断。举个例子:
+
+        ```java
+        channel.truncate(1024);
+        ```
+
+        这个示例以1024字节的长度截断文件。
+
+    8. FileChannel Force
+
+        force()方法将所有未写的数据从通道刷新到磁盘。由于性能原因，操作系统可能会在内存中缓存数据，所以在调用force()方法之前，不能保证写入通道的数据实际上是写入磁盘的。
+
+        force()方法接受一个布尔值作为参数，告诉是否也应该刷新文件元数据(权限等)。
+
+        下面是一个同时刷新数据和元数据的例子:
+
+        ```java
+        channel.force(true);
+        ```
+
 9. SocketChannel
 10. ServerSocketChannel
 11. Non-blocking Server
