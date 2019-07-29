@@ -777,7 +777,161 @@
         ```
 
 9. SocketChannel
+
+    Java NIO SocketChannel是连接到TCP网络套接字的通道。它相当于Java NIO的Java网络套接字。有两种方法可以创建SocketChannel:
+    * 您打开SocketChannel并连接到internet上某处的服务器。
+    * 可以在传入连接到达ServerSocketChannel时创建SocketChannel。
+
+    1. 打开一个SocketChannel
+
+        下面是如何打开SocketChannel:
+
+        ```java
+        SocketChannel socketChannel = SocketChannel.open();
+        socketChannel.connect(new InetSocketAddress("http://jenkov.com", 80));
+        ```
+
+    2. 关闭一个SocketChannel
+
+        通过调用SocketChannel.close()方法，可以在使用后关闭SocketChannel。这是如何做到的:
+
+        ```java
+        socketChannel.close();
+        ```
+
+    3. 从SocketChannel读取
+
+        要从SocketChannel读取数据，可以调用read()方法之一。举个例子:
+
+        ```java
+        ByteBuffer buf = ByteBuffer.allocate(48);
+
+        int bytesRead = socketChannel.read(buf);
+        ```
+
+        首先分配一个缓冲区。从SocketChannel读取的数据被读入缓冲区。
+
+        其次，调用SocketChannel.read()方法。该方法将数据从SocketChannel读入缓冲区。read()方法返回的int值告诉缓冲区中保留了多少字节。如果返回-1，则到达流的末端(连接已关闭)。
+
+    4. 往SocketChannel写入
+
+        将数据写入SocketChannel是使用SocketChannel.write()方法完成的，该方法将缓冲区作为参数。举个例子:
+
+        ```java
+        String newData = "New String to write to file..." + System.currentTimeMillis();
+
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
+        buf.put(newData.getBytes());
+
+        buf.flip();
+
+        while(buf.hasRemaining()) {
+            channel.write(buf);
+        }
+        ```
+
+        注意，如何在while循环中调用SocketChannel.write()方法。write()方法不能保证向SocketChannel写入多少字节。因此，我们重复write()调用，直到缓冲区没有需要写入的字节为止。
+
+    5. 非阻塞模式
+
+        您可以将SocketChannel设置为非阻塞模式。这样做时，可以在异步模式下调用connect()、read()和write()。
+
+        * connect()
+
+            如果SocketChannel处于非阻塞模式，并且调用connect()，则该方法可能在建立连接之前返回。要确定是否建立连接，可以调用finishConnect()方法，如下所示:
+
+            ```java
+            socketChannel.configureBlocking(false);
+            socketChannel.connect(new InetSocketAddress("http://jenkov.com", 80));
+
+            while(! socketChannel.finishConnect() ){
+                //wait, or do something else...
+            }
+            ```
+
+        * write()
+
+            在非阻塞模式下，write()方法可以返回，而不需要编写任何内容。因此，您需要在循环中调用write()方法。但是，由于这已经在前面的写示例中完成了，所以这里不需要做任何不同的操作。
+
+        * read()
+
+            在非阻塞模式下，read()方法可能根本不读取任何数据就返回。因此，需要注意返回的int，它表示读取了多少字节。
+
+        * 非阻塞模式的Selectors
+
+            SocketChannel的非阻塞模式与选择器的工作得更好。通过向选择器注册一个或多个SocketChannel，您可以向选择器询问准备读取、写入的通道。如何在SocketChannel中使用选择器将在本教程后面的文本中详细解释。
+
 10. ServerSocketChannel
+
+    Java NIO ServerSocketChannel是一个可以侦听传入TCP连接的通道，就像标准Java网络中的ServerSocket一样。ServerSocketChannel类位于java.nio.channels包中。
+
+    举个例子:
+
+    ```java
+    ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+
+    serverSocketChannel.socket().bind(new InetSocketAddress(9999));
+
+    while(true){
+        SocketChannel socketChannel = serverSocketChannel.accept();
+
+        //do something with socketChannel...
+    }
+    ```
+
+    1. 打开一个ServerSocketChannel
+
+        通过调用ServerSocketChannel.open()方法打开ServerSocketChannel。它是这样的:
+
+        ```java
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        ```
+
+    2. 关闭一个ServerSocketChannel
+
+        关闭ServerSocketChannel是通过调用ServerSocketChannel.close()方法来完成的。它是这样的:
+
+        ```java
+        serverSocketChannel.close();
+        ```
+
+    3. 监听进来的连接
+
+        监听传入连接是通过调用ServerSocketChannel.accept()方法来完成的。当accept()方法返回时，它返回一个带有传入连接的SocketChannel。因此，accept()方法阻塞，直到传入的连接到达。
+
+        由于您通常对侦听单个连接不感兴趣，所以您可以在while循环中调用accept()。它是这样的:
+
+        ```java
+        while(true){
+            SocketChannel socketChannel =
+                    serverSocketChannel.accept();
+
+            //do something with socketChannel...
+        }
+        ```
+
+        当然，您将在while循环中使用一些其他的stop-criteria，而不是true。
+
+    4. 非阻塞模式
+
+        可以将ServerSocketChannel设置为非阻塞模式。在非阻塞模式下，accept()方法立即返回，如果没有到达传入连接，则可能返回null。因此，您必须检查返回的SocketChannel是否为空。举个例子:
+
+        ```java
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+
+        serverSocketChannel.socket().bind(new InetSocketAddress(9999));
+        serverSocketChannel.configureBlocking(false);
+
+        while(true){
+            SocketChannel socketChannel = serverSocketChannel.accept();
+
+            if(socketChannel != null){
+                //do something with socketChannel...
+            }
+        }
+        ```
+
 11. Non-blocking Server
 12. DatagramChannel
 13. Pipe
