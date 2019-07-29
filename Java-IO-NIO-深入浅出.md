@@ -327,8 +327,266 @@
             * 所有的元素都是相等的，但是第一个缓冲区会在第二个缓冲区之前耗尽元素(它的元素更少)。
 
 5. Scatter / Gather
+
+    Java NIO提供了内置的scatter/gather支持。scatter/gather是用于从通道中读取和从通道中写入的概念。
+
+    从通道散射读取是将数据读入多个缓冲区的读取操作。因此，通道“散射”将数据从通道“分散”到多个缓冲区。
+
+    对通道的收集写操作是将多个缓冲区中的数据写入到单个通道的写操作。因此，通道“收集”来自多个缓冲区的数据到一个通道中。
+
+    scatter/gather在需要单独处理传输数据的各个部分的情况下非常有用。例如，如果消息由头和正文组成，则可以将头和正文保存在单独的缓冲区中。这样做可以使您更容易地分别处理header和body。
+
+    1. Scattering读取
+
+        “分散读取”将数据从单个通道读入多个缓冲区。下面是这一原则的一个例子:
+
+        下面是散点原理的一个例子:
+
+        ![](java/java-io-nio-scatter.png)
+
+        下面是一个代码示例，演示了如何执行散射读取:
+
+        ```java
+        ByteBuffer header = ByteBuffer.allocate(128);
+        ByteBuffer body   = ByteBuffer.allocate(1024);
+
+        ByteBuffer[] bufferArray = { header, body };
+
+        channel.read(bufferArray);
+        ```
+
+        注意，首先将缓冲区插入数组，然后将数组作为参数传递给channel.read()方法。然后read()方法按照缓冲区在数组中出现的顺序从通道中写入数据。一旦缓冲区满了，通道将继续填充下一个缓冲区。
+
+        分散读取在进入下一个缓冲区之前会填满一个缓冲区，这意味着它不适合动态调整消息部分的大小。换句话说，如果您有一个头和一个主体，并且头的大小是固定的(例如128字节)，那么分散读取就可以正常工作。
+
+    2. Gathering写入
+
+        “收集写”将数据从多个缓冲区写到一个通道。下面是这一原则的一个例子:
+
+        ![](java/java-io-nio-gather.png)
+
+        下面是一个代码示例，展示了如何执行一个集合写:
+
+        ```java
+        ByteBuffer header = ByteBuffer.allocate(128);
+        ByteBuffer body   = ByteBuffer.allocate(1024);
+
+        //write data into buffers
+
+        ByteBuffer[] bufferArray = { header, body };
+
+        channel.write(bufferArray);
+        ```
+
+        缓冲区数组被传递到write()方法中，该方法按数组中遇到的顺序写入缓冲区的内容。只写入缓冲区的位置和限制之间的数据。因此，如果一个缓冲区的容量为128字节，但只包含58字节，则只有58字节从该缓冲区写到通道。**因此，与分散读取相比，聚集写入可以很好地处理动态大小的消息部分。**
+
 6. Channel to Channel Transfers
+
+    在Java NIO中，如果其中一个通道是FileChannel，则可以直接将数据从一个通道传输到另一个通道。FileChannel类有一个transferTo()和一个transferFrom()方法，它们可以为您完成这一任务。
+
+    1. transferFrom()
+
+        FileChannel.transferfrom()方法将数据从源通道传输到FileChannel。下面是一个简单的例子:
+
+        ```java
+        RandomAccessFile fromFile = new RandomAccessFile("fromFile.txt", "rw");
+        FileChannel      fromChannel = fromFile.getChannel();
+
+        RandomAccessFile toFile = new RandomAccessFile("toFile.txt", "rw");
+        FileChannel      toChannel = toFile.getChannel();
+
+        long position = 0;
+        long count    = fromChannel.size();
+
+        toChannel.transferFrom(fromChannel, position, count);
+        ```
+
+        参数position和count，告诉目标文件中从何处开始写入(position)，以及最大传输多少字节(count)。如果源通道的字节数少于count，那么传输的字节数就会减少。
+        
+        此外，一些SocketChannel实现可能只传输SocketChannel在其内部缓冲区中已经准备好的数据——即使SocketChannel稍后可能有更多可用数据。因此，它可能不会将请求的全部数据(count)从SocketChannel传输到FileChannel。
+
+    2. transferTo()
+
+        transferTo()方法从一个FileChannel传输到另一个通道。下面是一个简单的例子:
+
+        ```java
+        RandomAccessFile fromFile = new RandomAccessFile("fromFile.txt", "rw");
+        FileChannel      fromChannel = fromFile.getChannel();
+
+        RandomAccessFile toFile = new RandomAccessFile("toFile.txt", "rw");
+        FileChannel      toChannel = toFile.getChannel();
+
+        long position = 0;
+        long count    = fromChannel.size();
+
+        fromChannel.transferTo(position, count, toChannel);
+        ```
+
+        请注意这个示例与前面的示例有多么相似。唯一真正的区别是方法调用的是哪个FileChannel对象。其余的都是一样的。
+
+        transferTo()方法也存在SocketChannel的问题。SocketChannel实现只能从FileChannel传输字节，直到发送缓冲区被填满，然后停止。
+
 7. Selector
+
+    Java NIO Selector是一个组件，它可以检查一个或多个Java NIO通道实例，并确定哪些通道已经准备好，例如读取或写入。通过这种方式，一个线程可以管理多个通道，从而管理多个网络连接。
+
+    * 为什么使用Selector?
+
+        只使用一个线程来处理多个通道的好处是，您需要更少的线程来处理通道。实际上，您可以只使用一个线程来处理所有通道。对于操作系统来说，在线程之间切换非常昂贵，而且每个线程也会占用操作系统中的一些资源(内存)。因此，使用的线程越少越好。
+
+        但是请记住，现代操作系统和CPU在多任务处理方面变得越来越好，因此多线程的开销会随着时间的推移变得越来越小。事实上，如果一个CPU有多个内核，那么不进行多任务处理可能会浪费CPU的能量。无论如何，关于设计的讨论属于别的范畴。这里只需说明，您可以使用选择器使用一个线程处理多个通道。
+
+        下面是一个线程使用选择器处理3个通道的例子:
+
+        ![](java/java-io-nio-overview-selectors.png)
+
+    * 创建Selector
+
+        您可以通过调用Select.open()方法来创建选择器，如下所示:
+
+        ```java
+        Selector selector = Selector.open();
+        ```
+
+    * 注册Channels到Selector
+
+        要使用带有选择器的通道，必须用选择器注册通道。这是使用SelectableChannel.register()方法完成的，如下所示:
+
+        ```java
+        channel.configureBlocking(false);
+
+        SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
+        ```
+
+        **通道必须处于非阻塞模式，才能与选择器一起使用**。这意味着您不能将FileChannel与选择器一起使用，因为FileChannel不能切换到非阻塞模式。不过套接字通道可以很好地工作。
+
+        注意register()方法的第二个参数。这是一个“兴趣集”，意思是通过选择器在通道中侦听您感兴趣的事件。你可以收听四个不同的事件:
+        
+        1. Connect
+        2. Accept
+        3. Read
+        4. Write
+        
+        一个“触发事件”的通道也被称为为该事件“准备好了”。
+
+        * 成功连接到另一个服务器的通道是“connect ready”。
+        * 接受传入连接的服务器套接字通道是“accept”就绪的。
+        * 准备读取数据的通道是“read”ready。
+        * 准备好向其写入数据的通道是“write”ready。
+
+        这四个事件由四个SelectionKey常量表示:
+        
+        1. SelectionKey.OP_CONNECT
+        2. SelectionKey.OP_ACCEPT
+        3. SelectionKey.OP_READ
+        4. SelectionKey.OP_WRITE
+        
+        如果你对不止一个事件感兴趣，或者把常数放在一起，就像这样:
+
+        ```java
+        int interestSet = SelectionKey。OP_READ | SelectionKey.OP_WRITE;
+        ```
+
+        我将回到这篇文章后面的兴趣点。
+
+    * SelectionKey
+
+        正如您在前一节中看到的，当您使用选择器注册通道时，register()方法将返回SelectionKey对象。这个SelectionKey对象包含一些有趣的属性:
+
+        * interest set
+        * ready set
+        * Channel
+        * Selector
+        * attached object (optional)
+
+        我将在下面描述这些属性。
+
+        1. Interest Set
+
+            兴趣集是您对“选择”感兴趣的事件集，如“向选择器注册通道”一节所述。你可以像这样通过SelectionKey读写兴趣集:
+
+            ```java
+            int interestSet = selectionKey.interestOps();
+
+            boolean isInterestedInAccept  = interestSet & SelectionKey.OP_ACCEPT;
+            boolean isInterestedInConnect = interestSet & SelectionKey.OP_CONNECT;
+            boolean isInterestedInRead    = interestSet & SelectionKey.OP_READ;
+            boolean isInterestedInWrite   = interestSet & SelectionKey.OP_WRITE;   
+            ```
+
+        2. Ready Set
+
+            就绪集是通道准备进行的一组操作。您将主要在选择之后访问就绪集。选择将在后面的部分进行解释。您可以这样访问就绪集:
+
+            ```java
+            int readySet = selectionKey.readyOps();
+            ```
+
+            您可以使用与兴趣集相同的方法测试通道准备用于哪些事件/操作。但是，你也可以用这四种方法来代替，它们都是布尔值:
+
+            ```java
+            selectionKey.isAcceptable();
+            selectionKey.isConnectable();
+            selectionKey.isReadable();
+            selectionKey.isWritable();
+            ```
+            
+        3. Channel + Selector
+
+            从SelectionKey访问channel + Selector非常简单。具体做法如下:
+
+            ```java
+            Channel  channel  = selectionKey.channel();
+
+            Selector selector = selectionKey.selector();
+            ```
+
+        4. Attaching Objects
+
+            您可以将对象附加到SelectionKey上——这是识别给定通道或将进一步信息附加到通道上的方便方法。例如，可以将正在使用的缓冲区附加到通道中，或者附加一个包含更多聚合数据的对象。下面是如何附加对象:
+
+            ```java
+            selectionKey.attach(theObject);
+
+            Object attachedObj = selectionKey.attachment();
+            ```
+
+            还可以在register()方法中用选择器注册通道时附加一个对象。它是这样的:
+
+            ```java
+            SelectionKey key = channel.register(selector, SelectionKey.OP_READ, theObject);
+            ```
+
+    * 通过Selector选择通道
+
+        一旦用选择器注册了一个或多个通道，就可以调用select()方法之一。这些方法返回为您感兴趣的事件(连接、接受、读取或写入)“准备好”的通道。换句话说，如果您对准备读取的通道感兴趣，那么您将从select()方法接收准备读取的通道。
+        以下是select()方法:
+
+        * int select()
+        * int select(long timeout)
+        * int selectNow()
+
+        1. select()阻塞，直到至少有一个通道为您注册的事件准备好。
+        2. select(long timeout)与select()执行相同的操作，只是它阻塞超时毫秒(参数)的最大值。
+        3. selectNow()根本不会阻塞。它立即返回任何准备好的通道。
+
+        select()方法返回的int值告诉我们有多少通道已经准备好了。也就是说，自上次调用select()以来，已经准备好了多少通道。如果您调用select()，它返回1，因为一个通道已经就绪，您再次调用select()，并且一个通道已经就绪，它将再次返回1。如果您没有对第一个就绪的通道执行任何操作，那么现在就有了两个就绪通道，但是在每个select()调用之间只有一个通道已经就绪。
+
+        **selectedKeys()**
+
+        一旦您调用了select()方法中的一个，并且它的返回值表明一个或多个通道已经就绪，您就可以通过“selected key set”通过调用selectors selectedKeys()方法来访问就绪通道。它是这样的:
+
+        ```java
+        Set<SelectionKey> selectedKeys = select .selectedKeys();
+        ```
+
+        当您使用选择器注册通道时，channel.register()方法将返回SelectionKey对象。此键表示使用该选择器进行通道注册。您可以通过selectedKeySet()方法访问这些密钥。从SelectionKey。
+        您可以迭代这个选定的键集来访问就绪通道。它是这样的:
+
+    * wakeUp()
+    * close()
+    * 完整的Selector例子
+
 8. FileChannel
 9. SocketChannel
 10. ServerSocketChannel
