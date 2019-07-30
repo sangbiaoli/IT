@@ -932,80 +932,130 @@
         }
         ```
 
-11. Non-blocking Server
+11. DatagramChannel
 
-    即使您了解Java NIO非阻塞特性(选择器、通道、缓冲区等)是如何工作的，设计非阻塞服务器仍然很困难。与阻塞IO相比，非阻塞IO包含几个挑战。本非阻塞服务器教程将讨论非阻塞服务器的主要挑战，并描述一些可能的解决方案。
+    Java NIO DatagramChannel是一个可以发送和接收UDP数据包的通道。由于UDP是一种无连接的网络协议，您不能像从其他通道读取和写入数据流通道一样，在默认情况下直接读取和写入数据流通道。而是发送和接收数据包。
 
-    找到关于设计非阻塞服务器的良好信息是困难的。因此，本教程提供的解决方案是基于我自己的工作和想法。如果你有其他选择或者更好的主意，我很乐意听到!你可以在文章下面写一条评论，或者给我发一封电子邮件(见我们的About页面)，或者在Twitter上找到我。
+    1. 打开一个DatagramChannel
 
-    本教程中描述的思想是围绕Java NIO设计的。但是，我相信这些思想可以在其他语言中重用，只要它们具有某种类似于选择器的构造。据我所知，这些结构是由底层OS提供的，所以很有可能您也可以用其他语言访问它。
+        下面是如何打开DatagramChannel:
 
-    1. 非阻塞服务器- GitHub存储库
+        ```java
+        DatagramChannel channel = DatagramChannel.open();
+        channel.socket().bind(new InetSocketAddress(9999));
+        ```
 
-        我已经创建了本教程中介绍的概念的简单证明，并将其放在GitHub存储库中供您查看。以下是GitHub库:
+        本例打开一个DatagramChannel，它可以在UDP端口9999上接收数据包。
 
-        https://github.com/jjenkov/java-nio-server
+    2. 接收数据
 
-    2. 非阻塞IO管道
+        通过调用DatagramChannel的receive()方法接收数据，如下所示:
 
-        非阻塞IO管道是处理非阻塞IO的组件链。这包括以非阻塞方式读取和写入IO。下面是一个简化的非阻塞IO管道的例子:
+        ```java
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
 
-        ![](java/java-io-nio-non-blocking-server-1.png)
+        channel.receive(buf);
+        ```
 
-        组件使用选择器检查通道何时有数据要读取。然后组件读取输入数据并根据输入生成一些输出。再次将输出写入通道。
+        receive()方法将把接收到的数据包的内容复制到给定的缓冲区中。如果接收到的数据包包含的数据超过缓冲区所能包含的数据，那么剩余的数据将被无声地丢弃。
 
-        非阻塞IO管道不需要都读写数据。有些管道可能只读取数据，有些管道可能只写入数据。
+    3. 发送数据
 
-        上面的图表只显示了一个组件。非阻塞IO管道可能有多个组件处理传入数据。非阻塞IO管道的长度取决于管道需要做什么。
+        您可以通过调用DatagramChannel的send()方法来发送数据，如下所示:
 
-        非阻塞IO管道也可以同时从多个通道读取数据。例如，从多个套接字通道读取数据。
+        ```java
+        String newData = "New String to write to file..." + System.currentTimeMillis();
 
-        上图中的控制流程也得到了简化。它是启动通过选择器从通道读取数据的组件。并不是通道将数据推入选择器，然后从选择器推入组件，即使这是上面的图表所建议的。
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
+        buf.put(newData.getBytes());
+        buf.flip();
 
-    3. 非阻塞与阻塞IO管道
+        int bytesSent = channel.send(buf, new InetSocketAddress("jenkov.com", 80));
+        ```
 
-        非阻塞IO管道和阻塞IO管道之间最大的区别是如何从底层通道(套接字或文件)读取数据。
+        本例将字符串发送到UDP端口80上的“jenkov.com”服务器。如果没有监听端口，则什么也不会发生。您将不会被通知是否收到发送包，因为UDP不做任何保证，关于数据的交付。
 
-        IO管道通常从某些流(从套接字或文件)读取数据，并将数据拆分为一致的消息。这类似于将数据流分解为令牌，以便使用令牌器进行解析。相反，您将数据流分解为更大的消息。我将消息阅读器调用组件，将流分解为的消息。下面是一个消息阅读器将消息流分解为消息的例子:
+    4. 连接到一个指定的地址
 
-        ![](java/java-io-nio-non-blocking-server-2.png)
+        可以将DatagramChannel“连接”到网络上的特定地址。由于UDP是无连接的，这种连接到地址的方式不会创建真正的连接，就像使用TCP通道一样。相反，它锁定您的DatagramChannel，因此您只能从一个特定的地址发送和接收数据包。
+        
+        举个例子:
 
-        阻塞IO管道可以使用一个类似inputstream的接口，在这个接口中，每次可以从底层通道读取一个字节，而类似inputstream的接口会阻塞该接口，直到有数据可以读取为止。这将导致阻塞消息读取器实现。
+        ```java
+        channel.connect(new InetSocketAddress("jenkov.com", 80));    
+        ```
 
-        使用阻塞IO接口消息流简化了实现读者很多。一个阻塞消息读者从未处理的情况下没有从流读取数据,或者只有一个部分从流读取的消息和消息解析需要恢复。
+        连接时，还可以使用read()和write()方法，就像使用传统通道一样。对于发送的数据，您没有任何保证。这里有几个例子:
 
-        类似地，阻塞消息编写器(向流编写消息的组件)永远不必处理只编写了消息的一部分以及稍后必须恢复消息编写的情况。
+        ```java
+        int bytesRead = channel.read(buf);    
+        int bytesWritten = channel.write(buf);
+        ```
 
-        * 阻塞IO管道
+12. Pipe
 
-    4. 基本的非阻塞IO管道设计
+    Java NIO管道是两个线程之间的单向数据连接。管道有源信道和接收信道。将数据写入接收器通道。然后可以从源通道读取这些数据。
+    
+    下面是管道原理的说明:
 
-    5. 阅读部分的信息
+    ![](java/java-io-nio-pipe-internals.png)
 
-    6. 存储部分信息
-        * Message Reader内置Buffer
+    1. 创建Pipe
 
-            显然，部分消息需要存储在某种缓冲区中。简单的实现方法是在每个消息阅读器内部有一个Buffer。然而，这个缓冲区应该有多大?它需要足够大，甚至能够存储允许的最大消息。因此，如果允许的最大消息是1MB，那么每个消息阅读器中的内部缓冲区至少需要1MB。
+        您可以通过调用Pipe.open()方法来打开管道。它是这样的:
 
-            当我们到达数百万个连接时，每个连接使用1MB并不能真正工作。1.000.000 x 1MB仍然是1TB的内存!如果消息的最大大小是16MB呢?还是128 mb ?
+        ```java
+        Pipe pipe = Pipe.open();
+        ```
 
-        * 可调整大小的Buffers
-        * 通过Copy调整大小
-        * 通过Append调整大小
-        * TLV编码信息
+    2. 写入到Pipe
 
-    7. 写入部分的信息
-    8. 把它们放在一起
-    9. 服务器线程模型
+        要写入管道，您需要访问sink通道。这是如何做到的:
+        
+        ```java
+        Pipe.SinkChannel sinkChannel = pipe.sink();
+        ```
 
-12. DatagramChannel
-13. Pipe
-14. NIO　vs. IO
-15. Path
-16. Files
-17. AsynchronousFileChannel
+        您可以通过调用它的write()方法来写入一个SinkChannel，如下所示:
 
+        ```java
+        String newData = "New String to write to file..." + System.currentTimeMillis();
 
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
+        buf.put(newData.getBytes());
+
+        buf.flip();
+
+        while(buf.hasRemaining()) {
+            sinkChannel.write(buf);
+        }
+        ```
+
+    3. 从Pipe中读取
+
+        要从管道中读取数据，需要访问源通道。这是如何做到的:
+
+        ```java
+        Pipe.SourceChannel sourceChannel = pipe.source();
+        ```
+
+        要从源通道读取，可以像这样调用它的read()方法:
+
+        ```java
+        ByteBuffer buf = ByteBuffer.allocate(48);
+
+        int bytesRead = inChannel.read(buf);
+        ```
+
+        read()方法返回的int值表示读入缓冲区的字节数。
+
+13. NIO　vs. IO
+14. Path
+15. Files
+16. AsynchronousFileChannel
 
 
 原文：http://tutorials.jenkov.com/java-nio/index.html
