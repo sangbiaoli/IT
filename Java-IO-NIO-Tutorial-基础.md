@@ -1057,5 +1057,158 @@
 15. Files
 16. AsynchronousFileChannel
 
+    在Java 7中，AsynchronousFileChannel被添加到Java NIO中。AsynchronousFileChannel使异步地读取数据和将数据写入文件成为可能。本教程将解释如何使用AsynchronousFileChannel。
+
+    1. 创建一个AsynchronousFileChannel
+
+        通过其静态方法open()创建AsynchronousFileChannel。下面是一个创建AsynchronousFileChannel的例子:
+
+        ```java
+        Path path = Paths.get("data/test.xml");
+
+        AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.READ);
+        ```
+
+        open()方法的第一个参数是指向要与AsynchronousFileChannel关联的文件的路径实例。
+
+        第二个参数是一个或多个open选项，它告诉AsynchronousFileChannel要对基础文件执行哪些操作。在本例中，我们使用了StandardOpenOption。这意味着文件将被打开以供读取。
+
+    2. 读取数据
+
+        可以通过两种方式从AsynchronousFileChannel读取数据。每种读取数据的方法都调用AsynchronousFileChannel的read()方法之一。下面几节将介绍这两种读取数据的方法。
+
+        1. 通过Future读取数据
+
+            从AsynchronousFileChannel读取数据的第一种方法是调用read()方法，该方法返回一个Future。下面是调用read()方法的样子:
+
+            ```java
+            Future<Integer> operation = fileChannel.read(buffer, 0);
+            ```
+
+            read()方法的这个版本将ByteBuffer作为第一个参数。从AsynchronousFileChannel读取的数据被读入这个ByteBuffer。第二个参数是要开始读取的文件中的字节位置。
+            即使read操作尚未完成，read()方法也会立即返回。您可以通过调用read()方法返回的将来实例的isDone()方法来检查何时完成读取操作。
+
+            下面是一个更长的例子，展示了如何使用read()方法的这个版本:
+
+            ```java
+            AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.READ);
+
+            ByteBuffer buffer = ByteBuffer.allocate(1024);
+            long position = 0;
+
+            Future<Integer> operation = fileChannel.read(buffer, position);
+
+            while(!operation.isDone());
+
+            buffer.flip();
+            byte[] data = new byte[buffer.limit()];
+            buffer.get(data);
+            System.out.println(new String(data));
+            buffer.clear();
+            ```
+
+            这个例子创建了一个AsynchronousFileChannel，然后创建了一个ByteBuffer，它作为参数传递给read()方法，位置为0。在调用read()之后，示例循环，直到返回的Future的isDone()方法返回true。当然，这不是对CPU的非常有效的使用——但是您需要等待read操作完成。
+            读取操作完成后，将数据读入ByteBuffer，然后读入字符串并打印到System.out。
+
+        2. 通过CompletionHandler读取数据
+
+            从AsynchronousFileChannel读取数据的第二种方法是调用read()方法版本，该版本以CompletionHandler作为参数。下面是如何调用read()方法:
+
+            ```java
+            fileChannel.read(buffer, position, buffer, new CompletionHandler<Integer, ByteBuffer>() {
+                @Override
+                public void completed(Integer result, ByteBuffer attachment) {
+                    System.out.println("result = " + result);
+
+                    attachment.flip();
+                    byte[] data = new byte[attachment.limit()];
+                    attachment.get(data);
+                    System.out.println(new String(data));
+                    attachment.clear();
+                }
+
+                @Override
+                public void failed(Throwable exc, ByteBuffer attachment) {
+
+                }
+            });
+            ```
+
+            一旦读取操作完成，CompletionHandler的completed()方法将被调用。作为completed()方法的参数，传递一个整数，该整数表示读取了多少字节，以及传递给read()方法的“附件”。“附件”是read()方法的第三个参数。在本例中，也将数据读入ByteBuffer。您可以自由选择要附加什么对象。
+
+            如果read操作失败，则会调用CompletionHandler的failed()方法。
+
+    3. 写数据
+
+        与读取一样，可以用两种方式将数据写入AsynchronousFileChannel。每种编写数据的方法都调用AsynchronousFileChannel的write()方法之一。这两种编写数据的方法将在下面几节中讨论。
+
+        1. 通过Future编写数据
+
+            AsynchronousFileChannel还允许您异步地编写数据。下面是一个完整的JavaAsynchronousFileChannel写例子:
+
+            ```java
+            Path path = Paths.get("data/test-write.txt");
+            AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE);
+
+            ByteBuffer buffer = ByteBuffer.allocate(1024);
+            long position = 0;
+
+            buffer.put("test data".getBytes());
+            buffer.flip();
+
+            Future<Integer> operation = fileChannel.write(buffer, position);
+            buffer.clear();
+
+            while(!operation.isDone());
+
+            System.out.println("Write done");
+            ```
+
+            首先，以写模式打开AsynchronousFileChannel。然后创建一个ByteBuffer并将一些数据写入其中。然后将ByteBuffer中的数据写入文件。最后，示例检查返回的Future，以查看写入操作何时完成。
+
+            注意，在此代码运行之前，文件必须已经存在。如果文件不存在，write()方法将抛出java.nio.file。NoSuchFileException。
+            您可以使用以下代码确保路径指向的文件存在:
+
+            ```java
+            if(!Files.exists(path)){
+                Files.createFile(path);
+            }
+            ```
+
+        2. 通过CompletionHandler写入数据
+
+            您还可以使用CompletionHandler将数据写入到AsynchronousFileChannel，以告诉您何时完成写入，而不是将来完成。下面是一个使用CompletionHandler向AsynchronousFileChannel写入数据的例子:
+
+            ```java
+            Path path = Paths.get("data/test-write.txt");
+            if(!Files.exists(path)){
+                Files.createFile(path);
+            }
+            AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE);
+
+            ByteBuffer buffer = ByteBuffer.allocate(1024);
+            long position = 0;
+
+            buffer.put("test data".getBytes());
+            buffer.flip();
+
+            fileChannel.write(buffer, position, buffer, new CompletionHandler<Integer, ByteBuffer>() {
+
+                @Override
+                public void completed(Integer result, ByteBuffer attachment) {
+                    System.out.println("bytes written: " + result);
+                }
+
+                @Override
+                public void failed(Throwable exc, ByteBuffer attachment) {
+                    System.out.println("Write failed");
+                    exc.printStackTrace();
+                }
+            });
+            ```
+
+            当写操作完成时，CompletionHandler的completed()方法将被调用。如果写操作由于某种原因失败，则会调用failed()方法。
+
+            注意ByteBuffer是如何作为附件使用的——它是传递给CompletionHandler方法的对象。
 
 原文：http://tutorials.jenkov.com/java-nio/index.html
