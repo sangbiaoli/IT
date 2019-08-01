@@ -1,4 +1,4 @@
-## netty overview
+## netty入门
 
 1. 核心组件
 
@@ -60,7 +60,7 @@
         * 打开或关闭到远程对等点的连接
         * 将数据写入或刷新到套接字
 
-        ![](netty/netty-overview-core-component.png)
+        ![](netty/netty-guide-core-component.png)
 
 2. Netty第一个应用
 
@@ -210,3 +210,10 @@
             }
         }
         ```
+
+        让我们回顾一下本节介绍的重要点:
+        1. 创建一个Bootstrap实例来初始化客户端。
+        2. 一个NioEventLoopGroup实例被分配来处理事件processing，这包括创建新的连接和处理入站和出站数据。
+        3. 为连接到服务器创建了一个InetSocketAddress。
+        4. 当连接r建立完成时，管道中将安装EchoClientHandle。
+        5. 在所有设置完成之后，将调用Bootstrap.connect()来连接到远程对等。
