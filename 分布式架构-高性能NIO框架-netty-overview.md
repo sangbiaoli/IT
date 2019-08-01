@@ -62,69 +62,151 @@
 
         ![](netty/netty-overview-core-component.png)
 
-2. 应用
+2. Netty第一个应用
 
-    * EchoServerHandler
-    ```java
-    @Sharable
-    public class EchoServerHandler extends ChannelInboundHandlerAdapter {
+    1. server端
 
-        @Override
-        public void channelRead(ChannelHandlerContext ctx, Object msg) {
-            ByteBuf in = (ByteBuf) msg;
-            System.out.println("Server received: " + in.toString(CharsetUtil.UTF_8));
-            ctx.write(in);
-        }
+        ```java
+        @Sharable  //表明一个ChannelHandler可以被多个通道安全地共享
+        public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
-        @Override
-        public void channelReadComplete(ChannelHandlerContext ctx) {
-            ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
-        }
-
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            cause.printStackTrace();
-            ctx.close();
-        }
-    }
-    ```
-
-    * EchoServer
-    ```java
-    public class EchoServer {
-        private final int port;
-
-        public EchoServer(int port) {
-            this.port = port;
-        }
-
-        public static void main(String[] args) throws Exception {
-            if (args.length != 1) {
-                System.err.println("Usage: " + EchoServer.class.getSimpleName() + " <port>");
+            @Override
+            public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                ByteBuf in = (ByteBuf) msg;
+                System.out.println("Server received: " + in.toString(CharsetUtil.UTF_8)); //将消息记录到控制台
+                ctx.write(in); //将接收到的消息写入发送方，而不刷新出站消息
             }
-            int port = Integer.parseInt(args[0]);
-            new EchoServer(port).start();
-        }
 
-        public void start() throws Exception {
-            final EchoServerHandler serverHandler = new EchoServerHandler();
-            EventLoopGroup group = new NioEventLoopGroup();
-            try {
-                ServerBootstrap b = new ServerBootstrap();
-                b.group(group)
-                .channel(NioServerSocketChannel.class)
-                .localAddress(new InetSocketAddress(port))
-                .childHandler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    public void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast(serverHandler);
-                    }
-                });
-                ChannelFuture f = b.bind().sync();//调用sync让当前线程阻塞
-                f.channel().closeFuture().sync();//应用一直等待直到server Channel关闭，一旦关闭，EventLoopGroup，所有资源，相关线程都停止
-            } finally {
-                group.shutdownGracefully().sync();
+            @Override
+            public void channelReadComplete(ChannelHandlerContext ctx) {
+                ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE); //将挂起的消息刷新到远程对等端并关闭通道
+            }
+
+            @Override
+            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                cause.printStackTrace(); //打印异常堆栈跟踪
+                ctx.close(); //关闭通道
             }
         }
-    }
-    ```
+        ```
+
+        ```java
+        public class EchoServer {
+            private final int port;
+
+            public EchoServer(int port) {
+                this.port = port;
+            }
+
+            public static void main(String[] args) throws Exception {
+                if (args.length != 1) {
+                    System.err.println("Usage: " + EchoServer.class.getSimpleName() + " <port>");
+                }
+                int port = Integer.parseInt(args[0]);
+                new EchoServer(port).start();
+            }
+
+            public void start() throws Exception {
+                final EchoServerHandler serverHandler = new EchoServerHandler();
+                EventLoopGroup group = new NioEventLoopGroup(); //创建EventLoopGroup
+                try {
+                    ServerBootstrap b = new ServerBootstrap(); //创建ServerBootstrap
+                    b.group(group)
+                    .channel(NioServerSocketChannel.class) //指定NIO传输的使用Channel
+                    .localAddress(new InetSocketAddress(port)) //使用指定的端口设置套接字地址
+                    .childHandler(new ChannelInitializer<SocketChannel>() { //增加了一个EchoServerHandler到通道的ChannelPipeline
+                        @Override
+                        public void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline().addLast(serverHandler);
+                        }
+                    });
+                    ChannelFuture f = b.bind().sync(); //异步绑定服务器;sync()等待绑定完成。
+                    f.channel().closeFuture().sync(); //获取通道的closeFuture并阻塞当前线程，直到它完成为止
+                } finally {
+                    group.shutdownGracefully().sync(); //关闭EventLoopGroup，释放所有资源
+                }
+            }
+        }
+        ```
+
+        总结：
+        1. EchoServerHandler实现了业务逻辑
+        2. main方法启动了server
+
+        启动中涉及的步骤：
+        1. 创建ServerBootstrap实例并绑定server
+        2. 创建并分配NioEventLoopGroup实例来处理事件processing，例如接受新连接和读取/写入数据。
+        3. 指定服务器绑定到的本地InetSocketAddress。
+        4. 使用EchoServerHandler实例初始化每个新通道。
+        5. 调用ServerBootstrap.bind()绑定服务器。
+
+    2. client端
+
+        client端步骤：
+        1. 连接到服务器
+        2. 发送一条或多条消息
+        3. 对于每个消息，等待并接收来自服务器的相同消息
+        4. 关闭连接
+
+        ```java
+        @Sharable // 将该类标记为实例可在通道之间共享的类
+        public class EchoClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
+            @Override
+            public void channelActive(ChannelHandlerContext ctx) { // 当通知通道处于活动状态时，发送一条消息
+                ctx.writeAndFlush(Unpooled.copiedBuffer("Netty rocks!", CharsetUtil.UTF_8));
+            }
+
+            @Override
+            public void channelRead0(ChannelHandlerContext ctx, ByteBuf in) { // 记录接收到的消息的转储
+                System.out.println("Client received: " + in.toString(CharsetUtil.UTF_8));
+            }
+
+            @Override
+            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { // 在异常情况下，记录错误并关闭通道
+                cause.printStackTrace();
+                ctx.close();
+            }
+        }
+        ```
+
+        ```java
+        public class EchoClient {
+            private final String host;
+            private final int port;
+
+            public EchoClient(String host, int port) { //设置服务器的InetSocketAddress
+                this.host = host;
+                this.port = port;
+            }
+            
+            public static void main(String[] args) throws Exception {
+                if (args.length != 2) {
+                    System.err.println("Usage: " + EchoClient.class.getSimpleName() + " <host> <port>");
+                    return;
+                }
+                String host = args[0];
+                int port = Integer.parseInt(args[1]);
+                new EchoClient(host, port).start();
+            }
+            
+            public void start() throws Exception {
+                EventLoopGroup group = new NioEventLoopGroup();
+                try {
+                    Bootstrap b = new Bootstrap();//创建Bootstrap
+                    b.group(group)	//指定处理客户端事件的EventLoopGroup；需要实现NIO。
+                    .channel(NioSocketChannel.class) //通道类型是NIO传输的类型
+                    .remoteAddress(new InetSocketAddress(host, port))
+                    .handler(new ChannelInitializer<SocketChannel>() {	//在创建通道时向管道添加EchoClientHandler
+                        @Override
+                        public void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline().addLast(new EchoClientHandler());
+                        }
+                    });
+                    ChannelFuture f = b.connect().sync();
+                    f.channel().closeFuture().sync();
+                } finally {
+                    group.shutdownGracefully().sync();
+                }
+            }
+        }
+        ```
