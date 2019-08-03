@@ -69,11 +69,63 @@
 
         ![](netty/netty-design-channel_pipe_line.png)
 
-    3. ChannelHandler详解
+    3. 更近距离地查看ChannelHandler
+
+        如前所述，有许多不同类型的ChannelHandlers，每种处理程序的功能在很大程度上由其超类决定。Netty以适配器类的形式提供了许多缺省处理程序实现，这些实现旨在简化应用程序处理逻辑的开发。您已经看到，管道中的每个ChannelHandler负责将事件转发到链中的下一个处理程序。这些适配器类(及其子类)自动执行此操作，因此您只能覆盖希望专门化的方法和事件。
+
+        为什么是适配器?
+        有几个适配器类可以将编写自定义通道处理程序的工作量降到最低，因为它们提供了在相应接口中定义的所有方法的默认实现。
+
+        这些是您在创建自定义处理程序时最常调用的适配器:
+
+        * ChannelHandlerAdapter
+        * ChannelInboundHandlerAdapter
+        * ChannelOutboundHandlerAdapter
+        * ChannelDuplexHandlerAdapter
+
+        接下来，我们将研究三种ChannelHandler子类型:encoders、decoders和SimpleChannelInboundHandler<T>， ChannelInboundHandlerAdapter的子类。
+
     4. Encoders和decoders
+
+        当您使用Netty发送或接收消息时，将进行数据转换。**入站消息将被解码**;也就是说，从字节转换成另一种格式，通常是Java对象。**如果消息是出站的，则会发生相反的情况:它将从当前格式编码为字节**。这两种转换的原因很简单:网络数据总是由一系列字节组成。
+
+        为编码器和解码器提供各种类型的抽象类，以满足特定的需求。例如，您的应用程序可能使用不需要立即将消息转换为字节的中间格式。您仍然需要一个编码器，但它将派生自另一个超类。要确定合适的名称，可以应用一个简单的命名约定。
+
+        通常，基类的名称类似于ByteToMessageDecoder或MessageToByteEncoder。在特殊类型的情况下，您可能会发现一些类似于ProtobufEncoder和ProtobufDecoder的东西，它们支持谷歌的协议缓冲区。
+
+        严格地说，其他处理程序可以做编码器和解码器所做的事情。但是，正如有一些适配器类可以简化通道处理程序的创建一样，Netty提供的所有编码器/解码器适配器类都可以实现ChannelInboundHandler或ChannelOutboundHandler。
+
+        您将发现，对于入站数据，channelRead方法/事件被覆盖。对于从入站通道读取的每个消息，都将调用此方法。然后，它将调用所提供解码器的decode()方法，并将解码后的字节转发到管道中的下一个ChannelInboundHandler。
+
+        出站消息的模式正好相反:编码器将消息转换为字节并将其转发到下一个ChannelOutboundHandler。
+
     5. 抽象类SimpleChannelInboundHandler
+
+        最常见的情况是，您的应用程序将使用一个handler接收已解码消息并将业务逻辑应用于数据。要创建这样一个ChannelHandler，只需要扩展基本类SimpleChannelInboundHandler<T>，其中T是要处理的消息的Java类型。在这个处理程序中，您将覆盖基类的一个或多个方法，并获得对ChannelHandlerContext的引用，该引用作为输入参数传递给所有处理程序方法。
+
+        这种类型的处理程序中最重要的方法是channelRead0(ChannelHandlerContext,T)。除了不阻塞当前I/O线程的要求外，实现完全取决于您。
 
 3. Bootstrapping
 
-4. 总结
+    Netty的引导类为应用程序的网络层配置提供了容器，其中包括将一个进程绑定到给定端口，或者将一个进程连接到在指定端口的指定主机上运行的另一个进程。
 
+    通常，我们将前一个用例称为引导服务器，后一个用例称为引导客户机。这个术语简单方便，但它稍微掩盖了一个重要的事实:**术语“服务器”和“客户端”表示不同的网络行为**;也就是说，侦听传入的连接，而不是与一个或多个进程建立连接。
+
+    ```
+    请记住，严格地说，“连接”这个术语只适用于面向连接的协议，比如TCP，它保证在连接的端点之间有序地传递消息。
+    ```
+
+    因此，有两种引导类型:**一种是为客户机设计的(简称bootstrap)，另一个用于服务器(ServerBootstrap)**。无论您的应用程序使用哪种协议或执行哪种类型的数据处理，决定它使用哪个引导类的惟一因素是它作为客户机或服务器的功能。
+
+    两者区别：
+
+    1. ServerBootstrap绑定到本地端口，因为服务器必须侦听连接，而客户机应用程序使用Bootstrap连接到远程对等端。
+    2. 引导一个客户端只需要一个EventLoopGroup，但是一个ServerBootstrap需要两个(可以是同一个实例)。
+
+    服务器需要两组不同的通道
+    * 第一个集合将包含一个表示服务器自己的监听套接字的ServerChannel，绑定到本地端口。
+    * 第二个集合将包含为处理传入客户机连接而创建的所有通道——每个通道对应一个服务器已接受的连接。
+
+    与ServerChannel关联的EventLoopGroup分配一个EventLoop，该EventLoop负责为传入的连接请求创建通道。一旦连接被接入，第二个EventLoopGroup将EventLoop分配给它的通道。
+
+    ![](netty/netty-design-bootstrap.png)
