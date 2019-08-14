@@ -337,6 +337,35 @@
 
     1. 请求式：接口ByteBufAllocator
 
-        
+        主要分以下几种：
+        * buffer():返回具有基于堆或直接数据存储的ByteBuf
+        * heapBuffer():返回具有基于堆的存储的ByteBuf
+        * directBuffer():返回直接数据存储的ByteBuf
+        * compositeBuffer():返回一个CompositeByteBuf，它可以通过添加基于堆或直接缓冲区来扩展，最多添加指定数量的组件
+        * ioBuffer():返回将用于套接字上的I/O操作的ByteBuf
+
+        获取ByteBufAllocator引用
+
+        ```java
+        Channel channel = ...;
+        ByteBufAllocator allocator = channel.alloc();  //从Channel获取ByteBufAllocator
+        ....
+        ChannelHandlerContext ctx = ...;
+        ByteBufAllocator allocator2 = ctx.alloc();  //从ChannelHandlerContext获取ByteBufAllocator
+        ....
+        ```
+
+        Netty提供了ByteBufAllocator的两种实现:PooledByteBufAllocator和UnpooledByteBufAllocator。
+
     2. 非池化缓冲区
+
+        在某些情况下，您可能没有对ByteBufAllocator的引用。对于这种情况，Netty提供了一个名为Unpooled的实用程序类，它提供了静态方法来创建unpooled ByteBuf实例。
+
+        * buffer():返回基于堆数据存储的unpooled ByteBuf
+        * directBuffer():返回直接数据存储的unpooled ByteBuf
+        * wrappedBuffer():返回一个ByteBuf，它封装给定的数据
+        * copiedBuffer():返回一个ByteBuf，它复制给定的数据
+
     3. 类ByteBufUtil
+
+        ByteBufUtil提供了用于操作ByteBuf的静态助手方法。因为这API是通用的，与池无关，这些方法都是在分配类之外实现的。
