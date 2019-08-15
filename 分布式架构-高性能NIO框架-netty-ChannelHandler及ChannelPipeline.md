@@ -74,6 +74,43 @@
 
     6. Resource管理
 
+        Netty的四个泄露检出级别
+
+        级别|描述
+        --|--
+        DISABLED|禁用泄漏检测。只有在广泛的测试之后才能使用。
+        SIMPLE|报告使用1%的默认采样率发现的任何泄漏。这是默认级别，非常适合大多数情况。
+        ADVANCED|报告发现的泄漏和消息的访问位置。使用默认采样率。
+        PARANOID|就像ADVANCED一样，只是每个访问都是抽样的。这对性能有很大的影响，应该只在调试阶段使用。
+
+        诊断泄露工具的使用
+
+        * 消费和释放入站消息
+
+            ```java
+            @Sharable
+            public class DiscardInboundHandler extends ChannelInboundHandlerAdapter {  
+                @Override
+                public void ch annelRead(ChannelHandlerContext ctx, Object msg) {
+                    ReferenceCountUtil.release(msg);  //通过使用ReferenceCountUtil.release()释放资源
+                }
+            }
+            ```
+
+        * 废弃和释放出站数据
+
+            ```java
+            @Sharable
+            public class DiscardOutboundHandler
+                extends ChannelOutboundHandlerAdapter {        
+                @Override
+                public void write(ChannelHandlerContext ctx,Object msg, ChannelPromise promise) {
+                    ReferenceCountUtil.release(msg);  //通过使用ReferenceCountUtil.release()释放资源        
+                    promise.setSuccess();   //通知ChannelPromise：数据已经被处理
+                }
+            }
+            ```
+        
 2. 接口ChannelPipeline
 
     1. 修改ChannelPipeline
