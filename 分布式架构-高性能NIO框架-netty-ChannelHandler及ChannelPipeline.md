@@ -110,11 +110,62 @@
                 }
             }
             ```
-        
+
 2. 接口ChannelPipeline
 
+    创建的每个新通道都被分配了一个新的ChannelPipeline。这种联系是永久性的;通道既不能附加另一个通道管道，也不能分离当前管道。
+
+    根据事件的起源，事件将由ChannelInboundHandler或ChannelOutboundHandler处理。随后，通过调用ChannelHandlerContext实现，它将被转发到相同超类型的下一个处理程序。
+
+    图6.3演示了带有入站和出站ChannelHandlers的典型ChannelPipeline布局，并演示了我们前面的语句ChannelPipeline
+
+    ![](netty/netty-channel_handler_pipeline.png)
+
     1. 修改ChannelPipeline
+
+        用于修改ChannelPipeline的ChannelHandler方法
+
+        方法|描述
+        --|--
+        addFirst|添加ChannelHandler到ChannelPipeline
+        addBefore|
+        addAfter|
+        addLast|
+        remove|从ChannelPipeline移除一个ChannelHandler
+        replace|用一个ChannelHandler来替代ChannelPipeline中的一个ChannelHandler
+
+        ```java
+        ChannelPipeline pipeline = ..;
+        FirstHandler firstHandler = new FirstHandler();
+        pipeline.addLast("handler1", firstHandler);
+        pipeline.addFirst("handler2", new SecondHandler());
+        pipeline.addLast("handler3", new ThirdHandler());
+        ...
+        pipeline.remove("handler3");
+        pipeline.remove(firstHandler);
+        pipeline.replace("handler2", "handler4", new FourthHandler());
+        ```
+
+        用于访问ChannelHandler的ChannelPipeline操作
+
+        方法|描述
+        --|--
+        get|通过类型或名称返回ChannelHandler
+        context|返回绑定ChannelHandler的ChannelHandlerContext
+        names|返回ChannelPipeline中的所有ChannelHandlers的名称
+
     2. 触发事件
+
+        方法|描述
+        --|--
+        fireChannelRegistered|
+        fireChannelUnregistered|
+        fireChannelActive|
+        fireChannelInactive|
+        fireExceptionCaught|
+        fireUserEventTriggered|
+        fireChannelRead|
+        fireChannelReadComplete|
 
 3. 接口ChannelHandlerContext
 
