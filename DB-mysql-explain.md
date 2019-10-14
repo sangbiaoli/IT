@@ -98,5 +98,57 @@
 
     * const
 
+        表最多有一个匹配行，在查询开始时读取。因为只有一行，所以这一行中的列的值可以被其他优化器视为常量。const表非常快，因为只读取一次。
+
+        const用于将主键或惟一索引的所有部分与常数值进行比较。
+
+        ```sql
+        SELECT * FROM tbl_name WHERE primary_key=1;
+
+        SELECT * FROM tbl_name
+        WHERE primary_key_part1=1 AND primary_key_part2=2;
+        ```
+
+    * eq_ref
+
+        从该表中读取一行对应前一个表中的每个行组合。除了system和const类型之外，这是最好的连接类型。当联接使用索引的所有部分并且索引是主键或惟一非空索引时，将使用此索引。
+
+        eq_ref可以用于使用=操作符进行比较的索引列。
+
+        ```sql
+        SELECT * FROM ref_table,other_table
+        WHERE ref_table.key_column=other_table.column;
+
+        SELECT * FROM ref_table,other_table
+        WHERE ref_table.key_column_part1=other_table.column
+        AND ref_table.key_column_part2=1;
+        ```
+
+    * ref
+
+        从这个表中读取具有匹配索引值的所有行对应对于前一个表中的每个行组合。如果连接只使用键的最左端前缀，或者键不是主键或惟一索引(换句话说，如果连接不能根据键值选择单个行)，则使用ref。如果使用的键只匹配几行，这是一个很好的连接类型。
+
+        ref可以用于使用=或<=>操作符进行比较的索引列。
+
+        ```sql
+        SELECT * FROM ref_table WHERE key_column=expr;
+
+        SELECT * FROM ref_table,other_table
+        WHERE ref_table.key_column=other_table.column;
+
+        SELECT * FROM ref_table,other_table
+        WHERE ref_table.key_column_part1=other_table.column
+        AND ref_table.key_column_part2=1;
+        ```
+
+    * fulltext
+
+        连接是使用FULLTEXT执行的
+
+    * ref_or_null
+
+        
+
+
 
 参考：https://dev.mysql.com/doc/refman/8.0/en/explain-output.html
