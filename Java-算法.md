@@ -17,6 +17,7 @@
 
     3. 算法总结
 
+        ![](java/java-arithmetic-summary.jpg)
 
         图片名词解释：
 
@@ -25,7 +26,9 @@
         * In-place: 占用常数内存，不占用额外内存
         * Out-place: 占用额外内存
 
-    4.  算法分类
+    4. 算法分类
+
+        ![](java/java-arithmetic-classify.jpg)
 
     5. 比较和非比较的区别
 
@@ -50,14 +53,36 @@
 
     2. 动图演示
 
-
+        ![](java/java-arithmetic-bubble-sort.gif)
 
     3. 代码实现
 
+        ```java
+        public static void bubbleSort(int[] array) {
+            if(array.length <= 1)
+                return;
+
+            for (int i = 0; i < array.length; i++) {
+                for (int j = 0; j < array.length; j++) {
+                    if((j + 1) < array.length && array[j] > array[j + 1]){
+                        swap(array,j,j+1);
+                    }
+                }
+            }
+        }
+
+        private static void swap(int[] array, int a, int b) {
+            int temp = array[a];
+            array[a] = array[b];
+            array[b] = temp;
+        }
+        ```
 
     4. 算法分析
 
-        最佳情况：T(n) = O(n)   最差情况：T(n) = O(n2)   平均情况：T(n) = O(n2)
+        最佳情况：T(n) = O(n)
+        最差情况：T(n) = O(n2)
+        平均情况：T(n) = O(n2)
 
 2. 选择排序（Selection Sort）
 
@@ -74,10 +99,46 @@
         n-1趟结束，数组有序化了。
 
     2. 动图演示
+
+        ![](java/java-arithmetic-selection-sort.gif)
+
     3. 代码实现
+
+        ```java
+        /**
+        * 选择排序：挑选最大或最小，再交换
+        * @author liqiangbiao
+        * 2019年12月31日
+        *  @param array
+        * void
+        */
+        public static void selectionSort(int[] array) {
+            if(array.length <= 1)
+                return;
+
+            for (int i = 0; i < array.length; i++) {
+                int minIndex = i;
+                for (int j = i; j < array.length; j++) {
+                    if(array[minIndex] > array[j]){
+                        minIndex = j;
+                    }
+                }
+                swap(array,minIndex,i);
+            }
+        }
+
+        private static void swap(int[] array, int a, int b) {
+            int temp = array[a];
+            array[a] = array[b];
+            array[b] = temp;
+        }
+        ```
+
     4. 算法分析
 
-        最佳情况：T(n) = O(n2)  最差情况：T(n) = O(n2)  平均情况：T(n) = O(n2)
+        最佳情况：T(n) = O(n2)
+        最差情况：T(n) = O(n2)
+        平均情况：T(n) = O(n2)
 
 3. 插入排序（Insertion Sort）
 
@@ -93,12 +154,42 @@
         重复步骤3，直到找到已排序的元素小于或者等于新元素的位置；
         将新元素插入到该位置后；
         重复步骤2~5。
-    
+
     2. 动图演示
+
+        ![](java/java-arithmetic-insertion-sort.gif)
+
     3. 代码实现
+
+        ```java
+        /**
+        * 插入排序：从某个位置往回比较并插入，一直保持前面是有序的
+        * @author liqiangbiao
+        * 2019年12月31日
+        *  @param array
+        * void
+        */
+        public static void insertionSort(int[] array) {
+            if (array.length <= 1)
+                return;
+
+            for (int i = 1; i < array.length; i++) {
+                int temp = array[i];
+                int j = i - 1;
+                while (j >= 0 && array[j] > temp) {
+                    array[j + 1] = array[j];
+                    j--;
+                }
+                array[j + 1] = temp;
+            }
+        }
+        ```
+
     4. 算法分析
 
-        最佳情况：T(n) = O(n)   最坏情况：T(n) = O(n2)   平均情况：T(n) = O(n2)
+        最佳情况：T(n) = O(n)
+        最坏情况：T(n) = O(n2)
+        平均情况：T(n) = O(n2)
 
 4. 希尔排序（Shell Sort）
 
@@ -117,10 +208,58 @@
         每趟排序，根据对应的增量ti，将待排序列分割成若干长度为m 的子序列，分别对各子表进行直接插入排序。仅增量因子为1 时，整个序列作为一个表来处理，表长度即为整个序列的长度。
 
     2. 过程演示
+
+        ![](java/java-arithmetic-shell-sort.jpg)
+
     3. 代码实现
+
+        ```java
+        /**
+        * 希尔排序：切分分组，并用插入排序法（距离为gap）对分组内的元素进行配许
+        * @author liqiangbiao
+        * 2019年12月31日
+        *  @param array
+        * void
+        */
+        public static void shellSort(int[] array) {
+            if (array.length <= 1)
+                return;
+
+            int len = array.length;
+            int gap = len / 2;
+            while(gap > 0){
+                for (int i = gap; i < len; i++) {
+                    insertionSort(array,gap,i);
+                }
+                gap /= 2;
+            }
+
+        }
+        /**
+        * 从数组i的位置开始，以gap的距离进行插入排序
+        * @author liqiangbiao
+        * 2019年12月31日
+        *  @param array
+        *  @param gap
+        *  @param i
+        * void
+        */
+        private static void insertionSort(int[] array, int gap, int i) {
+            int temp = array[i];
+            int j = i - gap;
+            while (j >= 0 && array[j] > temp) {
+                array[j + gap] = array[j];
+                j -= gap;
+            }
+            array[j + gap] = temp;
+        }
+        ```
+
     4. 算法分析
 
-        最佳情况：T(n) = O(nlog2 n)  最坏情况：T(n) = O(nlog2 n)  平均情况：T(n) =O(nlog2n)　
+        最佳情况：T(n) = O(nlog2 n)
+        最坏情况：T(n) = O(nlog2 n)
+        平均情况：T(n) =O(nlog2n)
 
 5. 归并排序（Merge Sort）
 
@@ -134,12 +273,54 @@
         对这两个子序列分别采用归并排序；
         将两个排序好的子序列合并成一个最终的排序序列。
     2. 动图演示
+
+        ![](java/java-arithmetic-merge-sort.gif)
+
     3. 代码实现
 
+        ```java
+        /**
+        * 归并排序
+        * @param array
+        */
+        public static int[] mergeSort(int[] array) {
+            if (array.length <= 1)
+                return array;
+            
+            int mid = array.length / 2;
+            int[] left = Arrays.copyOfRange(array, 0, mid);
+            int[] right = Arrays.copyOfRange(array, mid,array.length);
+            return merge(mergeSort(left),mergeSort(right));
+        }
+
+        /**
+        * 归并排序，左或右有一方到了尽头，则另一方可以连续赋值（不做比较），否则比较谁低，谁赋值
+        * @param left
+        * @param right
+        * @return
+        */
+        private static int[] merge(int[] left, int[] right) {
+            int[] result = new int[left.length + right.length];
+            for (int index = 0, i = 0, j = 0; index < result.length; index++) {
+                if (i >= left.length) {
+                    result[index] = right[j++];
+                } else if (j >= right.length) {
+                    result[index] = left[i++];
+                } else if (left[i] > right[j]) {
+                    result[index] = right[j++];
+                } else {
+                    result[index] = left[i++];
+                }
+            }
+            return result;
+        }
+        ```
 
     4. 算法分析
 
-        最佳情况：T(n) = O(n)  最差情况：T(n) = O(nlogn)  平均情况：T(n) = O(nlogn)
+        最佳情况：T(n) = O(n)
+        最差情况：T(n) = O(nlogn)
+        平均情况：T(n) = O(nlogn)
 
 6. 快速排序（Quick Sort）
 
@@ -152,15 +333,40 @@
         从数列中挑出一个元素，称为 “基准”（pivot）；
         重新排序数列，所有元素比基准值小的摆放在基准前面，所有元素比基准值大的摆在基准的后面（相同的数可以到任一边）。在这个分区退出之后，该基准就处于数列的中间位置。这个称为分区（partition）操作；
         递归地（recursive）把小于基准值元素的子数列和大于基准值元素的子数列排序。
-        
+
     2. 动图演示
+
+        ![](java/java-arithmetic-quick-sort.gif)
 
     3. 代码实现
 
+        ```java
+        /**
+        * 快速排序
+        * @param array
+        */
+        public static void quickSort(int[] array) {
+            if (array.length <= 1)
+                return;
+
+            subQuickSort(array, 0, array.length - 1);
+        }
+
+        private static void subQuickSort(int[] array, int start, int end) {
+            if (start >= end)
+                return;
+
+            int middleIndex = subQuickSortCore(array, start, end);
+            subQuickSort(array, start, middleIndex - 1);
+            subQuickSort(array, middleIndex + 1, end);
+        }
+        ```
 
     4. 算法分析
 
-        最佳情况：T(n) = O(nlogn)   最差情况：T(n) = O(n2)   平均情况：T(n) = O(nlogn)　
+        最佳情况：T(n) = O(nlogn)
+        最差情况：T(n) = O(n2)
+        平均情况：T(n) = O(nlogn)
 
 7. 堆排序（Heap Sort）
 
@@ -174,16 +380,64 @@
 
     2. 动图演示
 
-
+        ![](java/java-arithmetic-heap-sort1.gif)
+        ![](java/java-arithmetic-heap-sort2.gif)
 
     3. 代码实现
 
         注意：这里用到了完全二叉树的部分性质：
 
+        ```java
+       /**
+        * 堆排序：以大顶堆为例
+        * @param array
+        */
+        public static void heapSort(int[] array) {
+            if (array.length <= 1)
+                return;
+
+            //从整个堆的最后一个非叶子节点开始，循环完所有则变成了大顶堆
+            for (int i = array.length / 2 - 1; i >= 0; i--) {
+                adjustHeap(array,i,array.length);
+            }
+            //调整对结构+交换堆顶与末尾元素
+            for (int j = array.length - 1; j > 0; j--) {
+                swap(array, 0, j); //将堆顶元素与末尾元素进行交换
+                adjustHeap(array, 0, j); //重新对堆进行调整
+            }
+        }
+
+        /**
+        * 调整完所有非叶子节点，该节点要与子节点比较并置换 <br>
+        * 调整完一遍，保证最大的元素浮在根节点，为下一步交换做准备
+        * @param array
+        * @param i
+        * @param length
+        */
+        private static void adjustHeap(int[] array, int i, int length) {
+            int temp = array[i];// 先取出当前元素i
+            for (int k = i * 2 + 1; k < length; k = k * 2 + 1) { // 从i节点的左子节点元素开始
+                //尝试寻找右节点，存在则比较，如果右节点更大，则k指向右节点
+                if(k + 1 < length && array[k] < array[k+1]){
+                    k++;
+                }
+                //如果子节点(不管是左还是右，都是大的那一个)大于父节点，将子节点赋值父节点
+                if(array[k] > temp){ 
+                    array[i] = array[k];
+                    i = k;
+                }else{
+                    break;
+                }
+            }
+            array[i] = temp;
+        }
+        ```
 
     4. 算法分析
 
-        最佳情况：T(n) = O(nlogn) 最差情况：T(n) = O(nlogn) 平均情况：T(n) = O(nlogn)
+        最佳情况：T(n) = O(nlogn)
+        最差情况：T(n) = O(nlogn)
+        平均情况：T(n) = O(nlogn)
 
 8. 计数排序（Counting Sort）
 
@@ -199,12 +453,58 @@
         反向填充目标数组：将每个元素i放在新数组的第C(i)项，每放一个元素就将C(i)减去1。
 
     2. 动图演示
+
+        ![](java/java-arithmetic-counting-sort.gif)
+
     3. 代码实现
+
+        ```java
+        /**
+        * 标记最大与最小，并记录这个区间的所有数的记数，循环这些计数重置数组
+        * 计数排序局限性较大，对于重复值较多的数组比较有用
+        * @param array
+        */
+        public static void countSort(int[] array) {
+            if (array.length <= 1)
+                return;
+
+            // 寻找最小与最大
+            int min = array[0], max = array[0];
+            for (int i = 0; i < array.length; i++) {
+                if (array[i] > max) {
+                    max = array[i];
+                }
+                if (array[i] < min) {
+                    min = array[i];
+                }
+            }
+            // 开始计数
+            int[] bucket = new int[max - min + 1];
+            Arrays.fill(bucket, 0);
+            for (int i = 0; i < array.length; i++) {
+                bucket[array[i] - min]++;
+            }
+
+            int index = 0;
+            // 组装结果
+            for (int i = min; i <= max; i++) {
+                int cnt = bucket[i - min];
+                while (cnt > 0) {
+                    array[index] = i;
+                    index++;
+                    cnt--;
+                }
+            }
+        }
+        ```
+
     4. 算法分析
 
         当输入的元素是n 个0到k之间的整数时，它的运行时间是 O(n + k)。计数排序不是比较排序，排序的速度快于任何比较排序算法。由于用来计数的数组C的长度取决于待排序数组中数据的范围（等于待排序数组的最大值与最小值的差加上1），这使得计数排序对于数据范围很大的数组，需要大量时间和内存。
 
-        最佳情况：T(n) = O(n+k)  最差情况：T(n) = O(n+k)  平均情况：T(n) = O(n+k)
+        最佳情况：T(n) = O(n+k)
+        最差情况：T(n) = O(n+k)
+        平均情况：T(n) = O(n+k)
 
 9. 桶排序（Bucket Sort）
 
@@ -222,7 +522,8 @@
 
     2. 图片演示
 
-
+        ![](java/java-arithmetic-bucket-sort1.jpg)
+        ![](java/java-arithmetic-bucket-sort2.png)
 
     3. 代码实现
 
@@ -230,7 +531,9 @@
 
         桶排序最好情况下使用线性时间O(n)，桶排序的时间复杂度，取决与对各个桶之间数据进行排序的时间复杂度，因为其它部分的时间复杂度都为O(n)。很显然，桶划分的越小，各个桶之间的数据越少，排序所用的时间也会越少。但相应的空间消耗就会增大。
 
-        最佳情况：T(n) = O(n+k)   最差情况：T(n) = O(n+k)   平均情况：T(n) = O(n2)
+        最佳情况：T(n) = O(n+k)
+        最差情况：T(n) = O(n+k)
+        平均情况：T(n) = O(n2)
 
 10. 基数排序（Radix Sort）
 
@@ -245,11 +548,16 @@
         对radix进行计数排序（利用计数排序适用于小范围数的特点）；
 
     2. 动图演示
+
+        ![](java/java-arithmetic-radix-sort.gif)
+
     3. 代码实现
+
     4. 算法分析
 
-        最佳情况：T(n) = O(n * k)   最差情况：T(n) = O(n * k)   平均情况：T(n) = O(n * k)
-
+        最佳情况：T(n) = O(n * k)
+        最差情况：T(n) = O(n * k)
+        平均情况：T(n) = O(n * k)
 
     基数排序有两种方法：
 
@@ -263,5 +571,6 @@
     * 计数排序：每个桶只存储单一键值
     * 桶排序：每个桶存储一定范围的数值
 
-
 原文：https://blog.csdn.net/zhangshk_/article/details/82911093
+https://blog.csdn.net/qq_36186690/article/details/82505569
+http://www.cocoachina.com/articles/181910?filter=ios
