@@ -135,6 +135,43 @@ Apache Flink是一个用于分布式流和批处理数据的开源平台。Flink
         **保存点类似于这些定期检查点，但它们是由用户触发的，并且在更新的检查点完成时不会自动过期。**
 
 
+3. 应用场景
+
+    1. 典型的事件驱动类应用
+        * 欺诈检测(Fraud detection)
+        * 异常检测(Anomaly detection)
+        * 基于规则的告警(Rule-based alerting)
+        * 业务流程监控(Business process monitoring)
+        * Web应用程序(社交网络)
+
+    2. 数据分析应用
+        * 批处理分析(Batch analytics)
+            
+            可以理解为周期性查询：比如Flink应用凌晨从Recorded Events中读取昨天的数据，然后做周期查询运算，最后将数据写入Database或者HDFS，或者直接将数据生成报表供公司上层领导决策使用。
+
+        * 流处理分析(Streaming analytics)
+
+            可以理解为连续性查询：比如实时展示双十一天猫销售GMV，用户下单数据需要实时写入消息队列，Flink应用源源不断读取数据做实时计算，然后不断的将数据更新至Database或者K-VStore，最后做大屏实时展示
+
+    3. 例子
+
+        1. 优化电商网站的实时搜索结果
+
+            阿里巴巴的所有基础设施团队使用flink实时更新产品细节和库存信息(Blink)。
+
+        2. 针对数据分析团队提供实时流处理服务
+
+            通过flink数据分析平台提供实时数据分析服务，及时发现问题。
+
+        3. 网络/传感器检测和错误检测
+
+            Bouygues电信公司，是法国最大的电信供应商之一，使用flink监控其有线和无线网络，实现快速故障响应。
+
+        4. 商业智能分析ETL
+
+            Zalando使用flink转换数据以便于加载到数据仓库，将复杂的转换操作转化为相对简单的并确保分析终端用户可以更快的访问数据(实时ETL)。
+
+
 原文：https://ci.apache.org/projects/flink/flink-docs-master/concepts/programming-model.html#collapse-2
 https://ci.apache.org/projects/flink/flink-docs-master/concepts/runtime.html
 https://flink.sojb.cn/dev/api_concepts.html
