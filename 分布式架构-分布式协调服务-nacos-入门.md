@@ -61,7 +61,7 @@
     sh startup.sh -m standalone
 
     ##服务注册
-    curl -X POST 'http://127.0.0.1:8848/nacos/v1/ns/instance?serviceName=nacos.naming.serviceName&ip=20.18.7.10&port=8080'
+    curl -X POST 'http://127.0.0.1:8848/nacos/v1/ns/instance?serviceName=nacos.naming.serviceName&ip=http://127.0.0.1/&port=8080'
 
     ##服务发现
     curl -X GET 'http://127.0.0.1:8848/nacos/v1/ns/instance/list?serviceName=nacos.naming.serviceName'
@@ -75,5 +75,162 @@
     ##关闭服务
     sh shutdown.sh
     ```
+
+3. 结合springboot
+
+    1. nacos数据准备
+
+        1. 启动nacos并发布配置
+
+            ```bash
+            cd nacos/bin
+
+            ##启动
+            sh startup.sh -m standalone
+            curl -X POST "http://127.0.0.1:8848/nacos/v1/cs/configs?dataId=nacos.properties&group=DEFAULT_GROUP&content=user.id=1%0Auser.name=james%0Auser.age=17"
+            ```
+
+            发布配置包含三个参数
+            * dataId : nacos.properties
+            * group : DEFAULT_GROUP
+            * content : user.id=1&user.name&james&user.age=17，要注意&符号的编码！！
+
+        2. nacos控制台访问
+
+            1. 访问连接：http://127.0.0.1:8848/nacos/index.html，默认账号：nacos/nacos
+
+            2. 查看配置信息
+
+                ![](nacos/nacos-intro-config.png)
+
+    2. 搭建springboot项目
+
+        1. pom.xml添加依赖
+
+            ```xml
+            <!-- 在父工程里管理子项目需要使用的依赖,方便统一控制版本 -->
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-dependencies</artifactId>
+                        <version>1.5.22.RELEASE</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.springframework.cloud</groupId>
+                        <artifactId>spring-cloud-dependencies</artifactId>
+                        <version>Brixton.RELEASE</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.springframework.cloud</groupId>
+                        <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                        <version>0.2.0.RELEASE</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                    </dependency>
+                </dependencies>
+
+            </dependencyManagement>
+
+            <dependencies>
+
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-freemarker</artifactId>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-web</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+                </dependency>
+            </dependencies>
+            ```
+
+        2. resources添加配置
+
+            * application.properties
+
+                ```properties
+                server.port=8080
+                ```
+
+                * server.port：此应用端口为8080
+
+            * bootstrap.properties
+
+                ```properties
+                spring.application.name=nacos
+                spring.cloud.nacos.config.server-addr=127.0.0.1:8848
+                ```
+
+                * spring.application.name：和上面发布配置的dataId对应，这里spring.application.name配置为**nacos**，那么对应的配置dataId=**nacos.properties**
+
+                * spring.cloud.nacos.config.server-addr：配置了nacos服务器的地址
+
+        3. java
+
+            * Application.java
+
+                ```java
+                import org.springframework.boot.SpringApplication;
+                import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+                @SpringBootApplication
+                public class Application {
+
+                    public static void main(String[] args) {
+                        SpringApplication.run(Application.class, args);
+                    }
+                }
+                ```
+
+            * UserController.java
+
+                ```java
+                import org.springframework.beans.factory.annotation.Value;
+                import org.springframework.cloud.context.config.annotation.RefreshScope;
+                import org.springframework.web.bind.annotation.RequestMapping;
+                import org.springframework.web.bind.annotation.RestController;
+
+                @RefreshScope
+                @RestController
+                class UserController {
+
+                    @Value("${user.name}")
+                    private String userName;
+
+                    @Value("${user.age}")
+                    private int age;
+
+                    @RequestMapping("/user")
+                    public String getUser() {
+                        return userName+" "+age;
+                    }
+                }
+                ```
+
+        4. 运行Application，并访问http://127.0.0.1:8080/user，可以看到结果
+
+            ```html
+            james 17
+            ```
+
+    3. 流程说明
+
+        1. 先启动了nacos，并且发布配置
+        2. 启动springboot，从bootstrap.properties获取nacos服务器，扫描@RefreshScope的类，从nacos获取配置信息
 
 参考：https://nacos.io/zh-cn/docs/what-is-nacos.html
