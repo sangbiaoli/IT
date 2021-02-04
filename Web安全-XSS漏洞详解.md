@@ -297,6 +297,7 @@
         $name=$_POST["name"];
         ?>
         ```
+<<<<<<< HEAD
 
         ```html
         <input id="text" type="text" value="<?php echo $name; ?>"/>
@@ -420,6 +421,125 @@
 
     5. 将单步流程改为多步，在多步流程中引入效验码
 
+=======
+
+        ```html
+        <input id="text" type="text" value="<?php echo $name; ?>"/>
+        <div id="print"></div>
+        <script type="text/javascript">
+        var text=document.getElementById("text");
+        var print=document.getElementById("print");
+        print.innerHTML=text.value;  // 获取 text的值，并且输出在print内。这里是导致xss的主要原因。
+        </script>
+        ```
+
+        这里有一个用户提交的页面，用户可以在此提交数据，数据提交之后给后台处理
+
+        我们可以输入"<img src=1 οnerrοr=alert('hack')>"，然后看看页面的变化
+
+        页面直接弹出了 hack 的页面，可以看到，我们插入的语句已经被页面给执行了。
+        这就是DOM型XSS漏洞，这种漏洞数据流向是： 前端-->浏览器
+
+7. XSS的过滤和绕过
+
+    前面讲sql注入的时候，我们讲过程序猿对于sql注入的一些过滤，利用一些函数（如：preg_replace()），将组成sql语句的一些字符给过滤，以防止注入。那么，程序猿也可以用一些函数将构成xss代码的一些关键字符给过滤了。可是，道高一尺魔高一丈，虽然过滤了，但是还是可以进行过滤绕过，以达到XSS攻击的目的。
+
+    1. 区分大小写过滤标签
+
+        ```html
+        <html>
+        <head lang="en">
+            <meta charset="UTF-8">
+            <title>反射型XSS</title>
+        </head>
+        <body>
+            <form action="action4.php" method="post">
+                <input type="text" name="name" />
+                <input type="submit" value="提交">
+            </form>
+        </body>
+        </html>
+        ```
+
+        ```php
+        <?php
+        $name=$_POST["name"]; 
+        if($name!=null){
+            $name=preg_replace("/<script>/","",$name);      //过滤<script>
+            $name=preg_replace("/<\/script>/","",$name);   //过滤</script>
+            echo $name; 
+        }
+        ?>
+        ```
+
+        绕过技巧：可以使用大小写绕过  <scripT>alert('hack')</scripT>
+
+    2. 不区分大小写过滤标签
+
+
+        这个和上面的代码一模一样，只不过是过滤的时候多加了一个 i ，以不区分大小写
+
+        ```php
+        $name=preg_replace("/<script>/i","",$name);    //不区分大小写过滤 <script>
+        $name=preg_replace("/<\/script>/i","",$name);  //不区分大小写过滤 </script>
+        ```
+
+        绕过技巧：可以使用嵌套的script标签绕过
+
+        ```
+        <scr<script>ipt>alert('hack')</scr</script>ipt>
+        ```
+
+    3. 不区分大小写，过滤之间的所有内容
+
+        这个和上面的代码一模一样，只不过是过滤的时候过滤条件发生了变化
+
+        ```php
+        $name = preg_replace( '/<(.*)s(.*)c(.*)r(.*)i(.*)p(.*)t/i', '', $_GET[ 'name' ] ); //过滤了<script  及其之间的所有内容
+        ```
+
+        虽然无法使用<script>标签注入XSS代码，但是可以通过img、body等标签的事件或者 iframe 等标签的 src 注入恶意的 js 代码。
+
+        ```html
+        payload：  <img src=1 οnerrοr=alert('hack')>
+        ```
+
+        我们可以输入 <img src=1 οnerrοr=alert('hack')>     ，然后看看页面的变化
+
+8. XSS的防御
+
+    XSS防御的总体思路是：对用户的输入(和URL参数)进行过滤，对输出进行html编码。也就是对用户提交的所有内容进行过滤，对url中的参数进行过滤，过滤掉会导致脚本执行的相关内容；然后对动态输出到页面的内容进行html编码，使脚本无法在浏览器中执行。
+
+    对输入的内容进行过滤，可以分为黑名单过滤和白名单过滤。黑名单过滤虽然可以拦截大部分的XSS攻击，但是还是存在被绕过的风险。白名单过滤虽然可以基本杜绝XSS攻击，但是真实环境中一般是不能进行如此严格的白名单过滤的。
+
+    对输出进行html编码，就是通过函数，将用户的输入的数据进行html编码，使其不能作为脚本运行。
+
+    如下，是使用php中的htmlspecialchars函数对用户输入的name参数进行html编码，将其转换为html实体
+
+    #使用htmlspecialchars函数对用户输入的name参数进行html编码，将其转换为html实体
+    $name = htmlspecialchars( $_GET[ 'name' ] );
+        
+    XSS跨站脚本攻击在Java开发中防范的方法
+
+    1. 过滤用户输入
+
+        防堵跨站漏洞，阻止攻击者利用在被攻击网站上发布跨站攻击语句不可以信任用户提交的任何内容，首先代码里对用户输入的地方和变量都需要仔细检查长度和对”<”,”>”,”;”,”’”等字符做过滤；其次任何内容写到页面之前都必须加以encode，避免不小心把html tag 弄出来。这一个层面做好，至少可以堵住超过一半的XSS 攻击。
+
+    2. Cookie 防盗
+
+        首先避免直接在cookie 中泄露用户隐私，例如email、密码等等。其次通过使cookie 和系统ip 绑定来降低cookie 泄露后的危险。这样攻击者得到的cookie 没有实际价值，不可能拿来重放。
+
+    3. 尽量采用POST 而非GET 提交表单
+
+        POST 操作不可能绕开javascript 的使用，这会给攻击者增加难度，减少可利用的跨站漏洞。
+
+    4. 严格检查refer
+
+        检查http refer 是否来自预料中的url。这可以阻止第2 类攻击手法发起的http 请求，也能防止大部分第1 类攻击手法，除非正好在特权操作的引用页上种了跨站访问。
+
+    5. 将单步流程改为多步，在多步流程中引入效验码
+
+>>>>>>> bb4f12de4d4efef4291b40ad726b3a29d4159567
         多步流程中每一步都产生一个验证码作为hidden 表单元素嵌在中间页面，下一步操作时这个验证码被提交到服务器，服务器检查这个验证码是否匹配。
 
         首先这为第1 类攻击者大大增加了麻烦。其次攻击者必须在多步流程中拿到上一步产生的效验码才有可能发起下一步请求，这在第2 类攻击中是几乎无法做到的。
