@@ -94,3 +94,35 @@
 
         1. nameserver: bin/mqnamesrv.sh &
         2. broker: bin/mqbroker.sh -c a.properties &
+
+        可以用jps查看进程状态
+
+6. mqadmin管理工具
+
+    进入到bin目录，可以看到脚本mqadmin，执行命令格式：mqadmin {command} {args}，一共分为几类
+    1. topic：updateTopic
+    2. 集群
+    3. broker
+    4. 消费者相关
+    5. 消费、生产者
+    6. 连接相关
+    7. nameserver相关
+
+7. 集群监控平台
+
+    1. rocketmq-console下载安装
+
+        ```bash
+        ##下载
+        git clone http://github.com/apache/rocketmq-externals.git
+        cd rocketmq-externals/rocket-console
+        vi src/resources/application.properties
+        ## 修改nameserverAddr配置
+        ## 修改完成后，打包
+        mvn clean package -Dmaven.test.skip=true
+        cd target
+        ## 启动
+        java -jar rocketmq-console.jar
+        ```
+
+    2. 启动rocketmq-console后，访问：http://localhost:8080，可以看到管理界面
